@@ -5,10 +5,40 @@ reads this code end to end. The rules are not documentation about the product �
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 120 lines and the cap is enforced. If something here does not
+It is capped at 160 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
-## 0. Session protocol
+## 0. The gates are advisory. Treat them as binding.
+
+This repository is private on a plan where branch protection does not exist, so
+CI reports a failure and nothing stops the merge. **The gate cannot enforce
+itself. You are the enforcement.**
+
+That is not permission to move faster. It is the opposite: every rule here is
+one you could step over without anyone noticing, which is exactly why stepping
+over one is the most damaging thing you can do in this repository.
+
+So, without exception:
+
+- **A red gate means do not merge.** Not "merge and open a follow-up". Not
+  "merge, it is only advisory". Fix it, or leave the pull request open.
+- **Never route around a rule.** Do not rename a file, move code to a path the
+  pattern misses, or split a change across pull requests so that neither one
+  fires the rule. If a rule is wrong, change the rule in its own pull request
+  and say why. Working around a rule silently is worse than the bug the rule
+  was there to catch.
+- **State the result, every time.** Finish any session that touched code by
+  reporting the outcome of `npm run gate` and `npm test` verbatim — including
+  the failures you did not fix and why. This is the point of the rule: it makes
+  ignoring a gate require an explicit false statement rather than a convenient
+  silence.
+- **Never claim a gate passed without running it.** If you could not run it, say
+  that instead.
+
+When branch protection is switched on, this section becomes redundant and the
+machine takes over. Until then it is the only thing standing in for it.
+
+## 1. Session protocol
 
 1. Read this file, then the contract of the module you are about to touch.
 2. Run `npm run gate:plan -- <the files you intend to touch>` **before writing**.
@@ -17,16 +47,16 @@ help you route, it belongs in a module contract instead.
 3. Change one module. Needing two usually means a boundary is in the wrong place —
    stop and say so rather than working around it.
 4. Regenerate what is generated, write the prose that changed.
-5. `npm run gate && npm test`.
+5. `npm run gate && npm test`. Report both results, pass or fail.
 6. Open a pull request. It auto-merges when the checks pass; nobody reviews it.
 
-## 1. What this is
+## 2. What this is
 
 A coupling-rule engine plus the CI wiring around it. A consuming repository copies
 `tools/agentic/` and `.github/workflows/`, writes its own `coupling.yaml`, and gets
 gates that cannot be bypassed with `--no-verify`.
 
-## 2. Map
+## 3. Map
 
 | Path | What lives there |
 | --- | --- |
@@ -37,7 +67,7 @@ gates that cannot be bypassed with `--no-verify`.
 | `coupling.yaml` | This repository's own rules. Also the schema reference. |
 | `docs/ENGINE.md` | Observable behaviour of the engine. Kept in step by a coupling rule. |
 
-## 3. I want to change X, so I read Y
+## 4. I want to change X, so I read Y
 
 | Intent | Read first |
 | --- | --- |
@@ -47,7 +77,7 @@ gates that cannot be bypassed with `--no-verify`.
 | Change which rules this repo enforces | `coupling.yaml` — protected, needs a label |
 | Use this in another repository | `README.md`, section "Adopting this" |
 
-## 4. Rules of this repository
+## 5. Rules of this repository
 
 Generated from `coupling.yaml`. Do not edit this section by hand.
 
@@ -59,7 +89,7 @@ Generated from `coupling.yaml`. Do not edit this section by hand.
 | `protected-controls` | `coupling.yaml`, `.github/workflows/**` | the `human-approved` label |
 <!-- /gen:coupling -->
 
-## 5. Commands
+## 6. Commands
 
 | Command | What it does |
 | --- | --- |
@@ -68,14 +98,14 @@ Generated from `coupling.yaml`. Do not edit this section by hand.
 | `npm test` | The engine's own tests |
 | `npm run gate -- --json` | The same result as data |
 
-## 6. What a good pull request looks like
+## 7. What a good pull request looks like
 
 - One module. One reason.
 - Every rule the plan predicted is satisfied, not waived.
 - Generated sections regenerated, never hand-edited.
 - Prose only where a machine cannot check it, and as little of it as possible.
 
-## 7. Never
+## 8. Never
 
 - Silence the checker: no `--no-verify`, no disabling a rule to make a pull
   request pass. If a rule is wrong, change the rule in its own pull request and
