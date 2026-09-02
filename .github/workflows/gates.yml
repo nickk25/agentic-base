@@ -1,0 +1,40 @@
+name: gates
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      # Full history: with the default shallow clone the base commit is absent
+      # and every diff against it fails with "bad object".
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Coupling rules
+        env:
+          # Two fixed SHAs. Never branch names — main moves while the pull
+          # request is open. On a push there is no pull request, so the engine
+          # falls back to the merge base.
+          AGENTIC_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          AGENTIC_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          AGENTIC_PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: npm run gate

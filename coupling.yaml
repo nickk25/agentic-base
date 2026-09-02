@@ -1,0 +1,67 @@
+# Coupling rules for this repository.
+#
+# "If these files change, these other things must be true, or the pull request
+# does not merge." One manifest, because documentation contracts, migrations,
+# prompt evals and dependency decisions are all the same shape.
+#
+# This file is also the reference an agent reads to learn the schema, so it is
+# commented more heavily than a normal project's would be.
+#
+# Kinds, in descending order of how much they actually prove:
+#
+#   command  Re-runs something and requires it to succeed. When that something
+#            regenerates a file and compares it to what was committed, this asks
+#            whether the file is TRUE, not whether somebody edited it. The only
+#            kind that cannot be satisfied by typing.
+#   added    A brand new path matching the pattern must exist. Editing an old
+#            file does not count.
+#   changed  Some diff exists in the target. Satisfied by writing anything at
+#            all, so treat it as a reminder that makes an agent open the file —
+#            never as proof the content is right.
+#   label    A named label on the pull request. A deliberate human gesture that
+#            leaves a trace. Not cryptographic: whoever holds the token can add
+#            it. It buys friction and an audit trail, not a guarantee.
+#
+# Patterns support `*` (one segment), `**` (any), `?` (one character),
+# `{name}` (one captured segment) and a leading `!` to subtract. A capture makes
+# one rule cover every module without anybody listing them.
+
+version: 1
+
+rules:
+  # Every pull request that changes engine behaviour has to say so in the docs.
+  # `changed` is only a reminder here; the check that cannot be fooled is the
+  # `command` above it, which regenerates the API section and compares it.
+  - id: engine-docs
+    why: The engine is what other repositories copy. Undocumented behaviour is unusable behaviour.
+    when:
+      - "tools/agentic/**"
+      - "!tools/agentic/**/*.test.mjs"
+      - "!tools/agentic/**/*.md"
+    require:
+      - kind: changed
+        paths: ["docs/ENGINE.md"]
+        rejectWhitespaceOnly: true
+        fix: "Describe the behaviour change in docs/ENGINE.md. If nothing observable changed, say so in one line under Unreleased."
+
+  # The path matcher is the piece everything else is built on, and its edge cases
+  # are exactly the ones nobody thinks about. Touch it, prove it still works.
+  - id: matcher-proven
+    why: A wrong glob silently disables every rule that uses it, and nothing else would notice.
+    when: ["tools/agentic/lib/glob.mjs"]
+    require:
+      - kind: command
+        run: "npm test"
+        fix: "Fix the failing case, or add one covering the behaviour you just changed."
+
+  # The controls that protect every other control. Without this, an agent can
+  # simply delete the rule that is in its way.
+  - id: protected-controls
+    why: A rule an agent can edit on its own is not a rule.
+    when:
+      - "coupling.yaml"
+      - ".github/workflows/**"
+    require:
+      - kind: label
+        name: human-approved
+        fix: "Add the `human-approved` label to this pull request by hand once you have read the diff yourself."

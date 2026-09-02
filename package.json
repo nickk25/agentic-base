@@ -1,0 +1,16 @@
+{
+  "name": "agentic-base",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent-first repository scaffolding: coupling rules, generated contracts, CI gates and a measured state timeline.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "gate": "node tools/agentic/gate.mjs",
+    "gate:plan": "node tools/agentic/gate.mjs --plan",
+    "test": "node --test tools/agentic/**/*.test.mjs"
+  },
+  "dependencies": {
+    "yaml": "^2.8.1"
+  }
+}
