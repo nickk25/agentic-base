@@ -1,27 +1,43 @@
 {
-  "generatedAt": "2026-09-02T13:47:22.494Z",
+  "generatedAt": "2026-09-02T13:53:12.902Z",
   "head": {
-    "sha": "aa7ce38dd990c3d8cf73702cd37c4a0f48f7cf14",
-    "subject": "Stop counting a failing claim as a covered one",
-    "ts": "2026-09-02T13:47:22.483Z",
+    "sha": "2a37e5f38b8dc081a1a1ad43463552a1d818b007",
+    "subject": "Stop the harness from proving things the suite never ran",
+    "ts": "2026-09-02T13:53:12.891Z",
     "dirty": false
   },
-  "status": "green",
+  "status": "amber",
   "numbers": {
-    "invariantsCovered": 84,
-    "invariantsDeclared": 84,
+    "invariantsCovered": 85,
+    "invariantsDeclared": 85,
     "failingTests": 0,
     "couplingViolations": 0
   },
-  "redZones": [],
+  "redZones": [
+    {
+      "what": "coupling not measured",
+      "detail": "The gate had no change set to evaluate, so this says nothing about whether the rules hold."
+    }
+  ],
   "health": {
-    "snapshots": 4,
+    "snapshots": 5,
     "improvements": 0,
     "regressions": 87,
     "openRegressions": 0,
     "usefulTransitionRate": 0
   },
   "timeline": [
+    {
+      "id": "e9b57097853a",
+      "ts": "2026-09-02T13:53:12.891Z",
+      "kind": "invariant.count",
+      "subject": "declared",
+      "severity": "neutral",
+      "evidence": [],
+      "from": 84,
+      "to": 85,
+      "sha": "2a37e5f38b8dc081a1a1ad43463552a1d818b007"
+    },
     {
       "id": "b3cbdacf309c",
       "ts": "2026-09-02T13:47:22.483Z",
@@ -665,17 +681,6 @@
       "ts": "2026-09-02T13:41:30.287Z",
       "kind": "test.removed",
       "subject": "tools/agentic/lib/blocks.test.mjs :: an unclosed marker is reported rather than ignored",
-      "severity": "down",
-      "evidence": [],
-      "from": "pass",
-      "to": "absent",
-      "sha": "3bace4baf2fb831896f66fe5f81454b06370f02c"
-    },
-    {
-      "id": "4005886ca139",
-      "ts": "2026-09-02T13:41:30.287Z",
-      "kind": "test.removed",
-      "subject": "tools/agentic/lib/blocks.test.mjs :: markers inside a code fence are examples, not regions",
       "severity": "down",
       "evidence": [],
       "from": "pass",
