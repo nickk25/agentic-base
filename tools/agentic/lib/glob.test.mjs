@@ -12,8 +12,7 @@ test('** crosses separators', () => {
   assert.ok(match('src/**/*.ts', 'src/core/index.ts'))
 })
 
-test('a/**/b also matches a/b', () => {
-  // @invariant INV-glob-01
+test('INV-glob-01 a/**/b also matches a/b', () => {
   // The classic off-by-one: `**` has to be allowed to match nothing at all,
   // otherwise a rule silently skips files sitting directly in the folder.
   assert.ok(match('src/**/index.ts', 'src/index.ts'))
@@ -48,38 +47,34 @@ test('substitute fills captures and leaves unknown ones alone', () => {
   assert.equal(substitute('src/{other}/x', { module: 'core' }), 'src/{other}/x')
 })
 
-test('malformed patterns fail loudly rather than matching nothing', () => {
-  // @invariant INV-glob-02
+test('INV-glob-02 malformed patterns fail loudly rather than matching nothing', () => {
   // A pattern that quietly matches nothing would disable a rule with no signal.
   assert.throws(() => match('src/{unterminated', 'src/a'), /unterminated capture/)
   assert.throws(() => match('src/{9bad}/x', 'src/a/x'), /invalid capture name/)
   assert.throws(() => match('{m}/{m}', 'a/b'), /duplicate capture/)
 })
 
-test('matchList binds the more specific pattern no matter where it sits in the list', () => {
-  // @invariant INV-glob-03
-  // matchList used to keep whichever positive pattern matched first. With
-  // `src/**` ahead of `src/{module}/**` that meant the capture-free pattern
-  // always won and `module` never bound, no matter how the rule was written.
+test('INV-glob-03 matchList binds the more specific pattern no matter where it sits in the list', () => {
+  // Picking whichever positive pattern matched first would let `src/**`, ahead
+  // of `src/{module}/**`, always win — the capture-free pattern would win and
+  // `module` would never bind, no matter how the rule was written.
   const moduleFirst = ['src/{module}/**', 'src/**']
   const moduleLast = ['src/**', 'src/{module}/**']
   assert.deepEqual(matchList(moduleFirst, 'src/core/plan.ts'), { module: 'core' })
   assert.deepEqual(matchList(moduleLast, 'src/core/plan.ts'), { module: 'core' })
 })
 
-test('matchList breaks a tie between equally-specific patterns by keeping the first', () => {
-  // @invariant INV-glob-04
+test('INV-glob-04 matchList breaks a tie between equally-specific patterns by keeping the first', () => {
   // "Most captures wins" needs its own tie-break, or picking between two
   // patterns that bind the same number of names would be order-dependent again.
   const patterns = ['src/{module}/plan.ts', 'src/{name}/plan.ts']
   assert.deepEqual(matchList(patterns, 'src/core/plan.ts'), { module: 'core' })
 })
 
-test('an unbound capture left in a required path would match any value, not the one intended', () => {
-  // @invariant INV-glob-05
-  // Pins the end-to-end danger from the bug report: before the matchList fix,
-  // `src/**` won first, `module` never bound, and `substitute` left the
-  // literal `{module}` in the required path. That string, recompiled as a
+test('INV-glob-05 an unbound capture left in a required path would match any value, not the one intended', () => {
+  // The end-to-end danger of picking the wrong pattern in matchList: if
+  // `src/**` won here, `module` would never bind, and `substitute` would leave
+  // the literal `{module}` in the required path. That string, recompiled as a
   // pattern, matches ANY module segment — a rule meant to require one
   // module's CLAUDE.md would be silently satisfied by every module's.
   const patterns = ['src/**', 'src/{module}/**']
@@ -91,13 +86,11 @@ test('an unbound capture left in a required path would match any value, not the 
   })
 })
 
-test('substituteStrict fills captures the same way substitute does', () => {
-  // @invariant INV-glob-06
+test('INV-glob-06 substituteStrict fills captures the same way substitute does', () => {
   assert.equal(substituteStrict('src/{module}/CLAUDE.md', { module: 'core' }), 'src/core/CLAUDE.md')
 })
 
-test('substituteStrict fails loudly instead of letting a capture go unbound', () => {
-  // @invariant INV-glob-07
+test('INV-glob-07 substituteStrict fails loudly instead of letting a capture go unbound', () => {
   // `substitute` would leave `{other}` in place here, and that placeholder acts
   // as a wildcard if it is ever recompiled as a pattern — the worst failure
   // mode for anything that gates access. substituteStrict must refuse instead.
@@ -107,8 +100,7 @@ test('substituteStrict fails loudly instead of letting a capture go unbound', ()
   )
 })
 
-test('a negation excludes a path for good, even when a later pattern matches it directly', () => {
-  // @invariant INV-glob-08
+test('INV-glob-08 a negation excludes a path for good, even when a later pattern matches it directly', () => {
   // Documents the intentional trade-off: negation applies over the whole
   // list, so once a path is excluded there is no way to write a later
   // positive pattern that re-includes it. Predictability (no order-dependence)
@@ -117,8 +109,7 @@ test('a negation excludes a path for good, even when a later pattern matches it 
   assert.equal(matchList(patterns, 'src/a.test.ts'), null)
 })
 
-test('an escaped metacharacter is a literal, not a wildcard', () => {
-  // @invariant INV-glob-09
+test('INV-glob-09 an escaped metacharacter is a literal, not a wildcard', () => {
   // Captures come from real path segments, so their content is not trusted
   // input. Without an escape there is no way to substitute `evil*` back into a
   // pattern without it becoming one.
@@ -128,8 +119,7 @@ test('an escaped metacharacter is a literal, not a wildcard', () => {
   assert.ok(match(`${escapeGlob('a{b}')}/x`, 'a{b}/x'), 'braces escape too, not just stars')
 })
 
-test('escaping leaves the pattern author\'s own globs alone', () => {
-  // @invariant INV-glob-10
+test('INV-glob-10 escaping leaves the pattern author\'s own globs alone', () => {
   assert.ok(match('src/*.ts', 'src/a.ts'))
   assert.deepEqual(match('src/{module}/**', 'src/core/a.ts'), { module: 'core' })
 })

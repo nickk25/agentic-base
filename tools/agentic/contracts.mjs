@@ -14,9 +14,9 @@
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { parse } from 'yaml'
 import { builtins } from './generators/index.mjs'
 import { danglingBlocks, duplicateBlocks, findBlocks, render, unterminatedFence } from './lib/blocks.mjs'
+import { loadManifest } from './lib/manifest.mjs'
 
 const ROOT = process.cwd()
 const MANIFEST = process.env.AGENTIC_MANIFEST ?? 'coupling.yaml'
@@ -74,7 +74,20 @@ async function main() {
   const json = argv.includes('--json')
   const allowEmpty = argv.includes('--allow-empty')
 
-  const rules = parse(readFileSync(join(ROOT, MANIFEST), 'utf8'))?.rules ?? []
+  // Goes through the same loader gate.mjs uses, so a manifest shape that
+  // would crash a generator (see the module comment in lib/manifest.mjs) is
+  // reported by name here instead of surfacing as an unhandled TypeError.
+  const { rules, problems } = loadManifest(join(ROOT, MANIFEST))
+  const manifestErrors = problems.filter((p) => p.level === 'error')
+  if (manifestErrors.length) {
+    if (json) {
+      console.log(JSON.stringify({ manifestProblems: manifestErrors }, null, 2))
+      process.exit(2)
+    }
+    console.error(`${c.red}${c.bold}${MANIFEST} problem${manifestErrors.length > 1 ? 's' : ''}${c.off}\n`)
+    for (const p of manifestErrors) console.error(`  ${c.red}✗${c.off} ${p.ruleId ? p.message : `${MANIFEST} ${p.message}`}`)
+    process.exit(2)
+  }
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
   const generators = await loadGenerators()
   const ctx = { rules, pkg, root: ROOT, readFirstProse }

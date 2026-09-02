@@ -5,7 +5,7 @@ reads this code end to end. The rules are not documentation about the product â€
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 300 lines and the cap is enforced. If something here does not
+It is capped at 360 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
 ## 0. The gates are advisory. Treat them as binding.
@@ -136,7 +136,30 @@ for, and it is not here yet.
 - The gate rejects a malformed manifest, naming the offending rule and the problem, before evaluating anything. `test: INV-coupling-16`
 - A capture containing glob metacharacters cannot widen the requirement it fills. `test: INV-coupling-17`
 - Deleting the target does not satisfy a `changed` requirement; otherwise the cheapest way to satisfy "document what you did" is to delete the document. `test: INV-coupling-18`
+- Adding blank lines does not satisfy `rejectWhitespaceOnly`. `test: INV-coupling-19`
 - Deleting a failing test does not clear its open regression. `test: INV-timeline-12`
+- A rule with no `id` is rejected by name instead of being silently accepted. `test: INV-manifest-01`
+- A `when` written as a string instead of a list is rejected instead of being iterated character by character. `test: INV-manifest-02`
+- A `require` that is not a list is rejected instead of being silently accepted. `test: INV-manifest-03`
+- An unknown key on a rule is named instead of being ignored. `test: INV-manifest-04`
+- An unknown requirement `kind` is named along with the rule and requirement index that carries it. `test: INV-manifest-05`
+- A `command` requirement without `run` is rejected. `test: INV-manifest-06`
+- A `label` requirement without `name` is rejected. `test: INV-manifest-07`
+- A `changed` requirement whose `paths` is not a list is rejected. `test: INV-manifest-08`
+- A key not used by a requirement's kind (e.g. `paths` on `command`) is named instead of being ignored. `test: INV-manifest-09`
+- A rule whose `when` is `[]` is rejected as a rule that can never fire. `test: INV-manifest-10`
+- A rule whose `when` consists entirely of negations is rejected as a rule that can never fire. `test: INV-manifest-11`
+- An `added` requirement with `paths: []` is rejected as impossible to satisfy. `test: INV-manifest-12`
+- A `changed` requirement with `paths: []` is rejected as impossible to satisfy. `test: INV-manifest-13`
+- Two rules sharing the same `id` are rejected as duplicates. `test: INV-manifest-14`
+- A `min` of zero is rejected instead of being treated as a requirement that is always satisfied. `test: INV-manifest-15`
+- A `min` that is not an integer is rejected. `test: INV-manifest-16`
+- An empty `require` list is rejected as a rule that demands nothing. `test: INV-manifest-17`
+- A well-formed manifest produces zero problems. `test: INV-manifest-18`
+- A manifest declaring zero rules is rejected as declaring nothing. `test: INV-manifest-19`
+- A missing manifest file is reported by name instead of throwing. `test: INV-manifest-20`
+- `loadManifest` reads and validates a real manifest file from disk. `test: INV-manifest-21`
+- `validateRules` validates an already-parsed rule array directly, with no YAML or file I/O involved. `test: INV-manifest-22`
 - Removing a healthy subject does retire its record, since there is nothing left to check. `test: INV-timeline-13`
 - An escaped metacharacter is a literal, not a wildcard, so a captured value can re-enter a pattern without becoming one. `test: INV-glob-09`
 - Escaping a captured value leaves the pattern author's own globs intact. `test: INV-glob-10`
@@ -174,7 +197,6 @@ for, and it is not here yet.
 - A tag in a file outside the tree the real test run covers must not satisfy a declared invariant. `test: INV-invariants-01`
 - A tag inside a test that runs and fails must not satisfy a declared invariant. `test: INV-invariants-02`
 - A tag inside a test that is skipped must not satisfy a declared invariant. `test: INV-invariants-03`
-- A tag that is not inside any `test(...)` call is reported as an orphan, in both online and offline mode. `test: INV-invariants-04`
 - Duplicate test names across different files do not collide in the tests probe's name-to-state map. `test: INV-invariants-05`
 - The TAP parser records a SKIP directive as its own state, never as a pass, and strips the directive from the test name. `test: INV-invariants-06`
 - The TAP parser does not count a `describe()` suite's own summary line as a test. `test: INV-invariants-07`

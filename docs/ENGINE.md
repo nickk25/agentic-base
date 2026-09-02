@@ -115,6 +115,38 @@ was a dead feature: every run began with an empty store, diffed nothing against
 nothing, and reported zero transitions forever. A push made with `GITHUB_TOKEN`
 does not re-trigger workflows, so this cannot loop.
 
+## Ids live in test titles
+
+An invariant id is written at the front of the test's own title:
+
+    test('INV-glob-01 a/**/b also matches a/b', ...)
+
+It used to be a comment inside the test body, found by scanning backwards
+through bracket nesting to locate the enclosing `test(` call. That was a
+JavaScript lexer that was not a JavaScript lexer: a test inside `describe()`
+reported as never run, and a string containing a bracket before the tag made the
+tag look like it belonged to no test at all. Both failed closed, but the remedy
+they offered was "rearrange your code until the heuristic is satisfied", which is
+a poor thing to hand an agent.
+
+Putting the id in the title removes the problem rather than patching it: the id
+travels in the TAP output itself, so nothing has to be parsed out of source, and
+ids are unique by construction. A test with no id is not an error and is not
+counted as coverage of anything.
+
+## Manifest validation is shared
+
+One loader validates and both `gate` and `contracts` go through it; neither can
+consume an unvalidated manifest. Beyond shape, five conditions are now errors,
+all of which used to be accepted and produce a rule that quietly did nothing:
+an empty `when`, a `when` of only negations, empty `paths`, a duplicate rule id,
+and a non-positive `min`.
+
+They are errors rather than warnings on purpose. A warning that never blocks is
+the same theatre as a `changed` requirement dressed up as a gate — it sits in the
+tree looking enforced. A rule set is a set of promises, and a rule that can never
+fire is a promise that cannot be kept.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -131,3 +163,4 @@ does not re-trigger workflows, so this cannot loop.
 - **Shell.** A `command` requirement is a shell string. A directory named
 - **Patterns.** A directory named `evil*` substituted into a requirement used to
 - Deletion loopholes closed, snapshots persisted, duplicate tags rejected, empty-but-allowed results reported honestly.
+- Ids in test titles, shared manifest validation, blank lines no longer count as a change.

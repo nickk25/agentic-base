@@ -76,6 +76,24 @@ export function runTapForFile(root, relFile) {
 }
 
 /**
+ * Run several test files together, in one subprocess, and capture their
+ * combined raw TAP output.
+ *
+ * `invariants.mjs` is the caller: it only needs to know, for each invariant
+ * id, whether the test whose title carries that id passed — and an id is
+ * unique by construction (a repeat is itself a reported problem), so there is
+ * no need to know which file a given result came from. Spawning once for the
+ * whole set is both simpler than and faster than one subprocess per file.
+ * Passing no files runs whatever `node --test` would discover on its own
+ * (the whole cwd), which is never what a caller here wants, so an empty list
+ * short-circuits to empty output instead.
+ */
+export function runTapForAll(root, relFiles) {
+  if (!relFiles.length) return { ok: true, out: '' }
+  return run('node', ['--test', '--test-reporter=tap', ...relFiles], { cwd: root })
+}
+
+/**
  * Parse Node's TAP output into leaf tests only, each with its true state.
  *
  * Node nests a `describe()` block as a subtest of its own: its close line
@@ -184,9 +202,8 @@ export const invariants = {
  * removes the ambiguity at the source: we always know which file produced the
  * output we are parsing. The key is `<repo-relative file> :: <test name>` —
  * relative, so it is identical on every machine (an absolute path is not, and
- * that mismatch is exactly what used to manufacture phantom `test.removed`
- * timeline entries whenever the snapshot was taken from a different checkout
- * or a different machine).
+ * that mismatch would manufacture a phantom `test.removed` timeline entry
+ * any time a snapshot was taken from a different checkout or machine).
  */
 export const tests = {
   name: 'tests',

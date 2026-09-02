@@ -13,11 +13,10 @@
  *   gate --json              the same result as data, for anything downstream
  */
 
-import { readFileSync } from 'node:fs'
 import { relative, resolve, sep } from 'node:path'
-import { parse } from 'yaml'
 import { changedFiles, resolveRange, touched } from './lib/changed.mjs'
 import { evaluate, planFor } from './lib/coupling.mjs'
+import { loadManifest } from './lib/manifest.mjs'
 
 const MANIFEST = process.env.AGENTIC_MANIFEST ?? 'coupling.yaml'
 
@@ -25,90 +24,22 @@ const c = process.stdout.isTTY
   ? { red: '\x1b[31m', green: '\x1b[32m', dim: '\x1b[2m', bold: '\x1b[1m', off: '\x1b[0m' }
   : { red: '', green: '', dim: '', bold: '', off: '' }
 
-const KNOWN_KINDS = new Set(['command', 'added', 'changed', 'label'])
-const RULE_KEYS = new Set(['id', 'when', 'require', 'why'])
-const COMMON_REQ_KEYS = new Set(['kind', 'fix'])
-// Which extra keys each requirement kind actually uses. Anything outside this
-// set is either a typo (a rule author meant `path` and wrote `paths` on the
-// wrong kind) or a leftover from copy-pasting a different requirement, and
-// both deserve a name, not silence.
-const KIND_KEYS = {
-  command: new Set(['run']),
-  added: new Set(['paths', 'min']),
-  changed: new Set(['paths', 'min', 'rejectWhitespaceOnly']),
-  label: new Set(['name']),
-}
-
 /**
- * Validate the manifest's shape before any rule is evaluated.
+ * Load and validate the manifest, or exit 2 explaining why not.
  *
- * `when: "src/*"` written as a string instead of a list is valid YAML, and
- * `matchList` (see lib/glob.mjs) happily iterates a string character by
- * character — every character becomes a one-character pattern, so the rule
- * fires on unrelated paths and stays silent on the one it was meant to catch.
- * That is worse than a crash: it looks like a working rule while doing
- * nothing like what its author intended. Reject the shape here, by name,
- * before it ever reaches the matcher.
- *
- * @param {any[]} rules
- * @returns {string[]} human-readable problems; empty when the manifest is well-formed
+ * `lib/manifest.mjs` is the only thing that reads and checks the file;
+ * `contracts.mjs` goes through the same function, so neither tool can end up
+ * evaluating a rule the other would have rejected.
  */
-function validateManifest(rules) {
-  const problems = []
-
-  for (const rule of rules) {
-    const label = rule?.id ?? '(unnamed rule)'
-
-    if (!rule?.id) problems.push(`${label}: missing "id"`)
-    if (!Array.isArray(rule?.when)) problems.push(`${label}: "when" must be a list of patterns, got ${typeof rule?.when}`)
-    if (!Array.isArray(rule?.require)) problems.push(`${label}: "require" must be a list of requirements, got ${typeof rule?.require}`)
-    for (const key of Object.keys(rule ?? {})) {
-      if (!RULE_KEYS.has(key)) problems.push(`${label}: unknown key "${key}"`)
-    }
-
-    if (!Array.isArray(rule?.require)) continue
-    rule.require.forEach((req, i) => {
-      const where = `${label}, require[${i}]`
-      if (!KNOWN_KINDS.has(req?.kind)) {
-        problems.push(`${where}: "kind" must be one of ${[...KNOWN_KINDS].join(', ')}, got ${JSON.stringify(req?.kind)}`)
-        return // Nothing else below is checkable without knowing the kind.
-      }
-      if (req.kind === 'command' && !req.run) problems.push(`${where}: kind "command" needs "run"`)
-      if ((req.kind === 'added' || req.kind === 'changed') && !Array.isArray(req.paths)) {
-        problems.push(`${where}: kind "${req.kind}" needs "paths" as a list`)
-      }
-      if (req.kind === 'label' && !req.name) problems.push(`${where}: kind "label" needs "name"`)
-
-      const allowed = new Set([...COMMON_REQ_KEYS, ...KIND_KEYS[req.kind]])
-      for (const key of Object.keys(req)) {
-        if (!allowed.has(key)) problems.push(`${where}: unknown key "${key}" for kind "${req.kind}"`)
-      }
-    })
-  }
-
-  return problems
-}
-
 function loadRules() {
-  let raw
-  try {
-    raw = readFileSync(MANIFEST, 'utf8')
-  } catch {
-    console.error(`No ${MANIFEST} found. This repository declares no coupling rules yet.`)
+  const { rules, problems } = loadManifest(MANIFEST)
+  const errors = problems.filter((p) => p.level === 'error')
+  if (errors.length) {
+    console.error(`${c.red}${c.bold}${MANIFEST} problem${errors.length > 1 ? 's' : ''}${c.off}\n`)
+    for (const p of errors) console.error(`  ${c.red}✗${c.off} ${p.ruleId ? p.message : `${MANIFEST} ${p.message}`}`)
     process.exit(2)
   }
-  const doc = parse(raw)
-  if (!doc?.rules?.length) {
-    console.error(`${MANIFEST} has no rules.`)
-    process.exit(2)
-  }
-  const problems = validateManifest(doc.rules)
-  if (problems.length) {
-    console.error(`${c.red}${c.bold}${MANIFEST} is malformed${c.off}\n`)
-    for (const p of problems) console.error(`  ${c.red}✗${c.off} ${p}`)
-    process.exit(2)
-  }
-  return doc.rules
+  return rules
 }
 
 /**
@@ -175,7 +106,7 @@ function main() {
   // success anyway is the exact false reassurance this repository exists to
   // prevent: a gate that measured nothing is not the same as a gate that
   // passed. `main` and a clean tree both land here via the merge-base fallback
-  // in resolveRange, and both used to print a green checkmark for it.
+  // in resolveRange, so this check must not assume a non-empty diff.
   if (!changes.length && !allowEmpty) {
     const rangeDesc = `${range.base ?? '(none)'}...${range.head} (${range.source})`
     if (json) {

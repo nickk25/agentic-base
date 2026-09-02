@@ -110,6 +110,10 @@ function triggers(rule, paths) {
  * whose only edits are whitespace reports as no lines added or removed, and
  * disappears from the output entirely.
  *
+ * `--ignore-blank-lines` alongside it, because `-w` alone still counts an added
+ * empty line as a real change — and pressing enter is the cheapest way there is
+ * to make a file look edited.
+ *
  * Built with `execFileSync` and a real argv, not a shell string: `path` is a
  * captured directory name from the change set, so it is exactly the kind of
  * value a hostile branch controls (see `SAFE_CAPTURE` above). Passing it as
@@ -122,7 +126,7 @@ function changedBeyondWhitespace(range, path) {
   try {
     const out = execFileSync(
       'git',
-      ['diff', '-w', '--numstat', `${range.base}...${range.head}`, '--', path],
+      ['diff', '-w', '--ignore-blank-lines', '--numstat', `${range.base}...${range.head}`, '--', path],
       { encoding: 'utf8' },
     )
     return out.trim().length > 0

@@ -9,20 +9,29 @@ import { parseTap, tests as testsProbe } from '../probes/index.mjs'
 
 // invariants.mjs is exercised end to end, as a real subprocess, against a
 // throwaway fixture repository under os.tmpdir() — never against fixtures
-// added to this repository. Each fixture reproduces one specific way a
-// `@invariant` tag can fail to genuinely back a declared claim: living
-// outside the tree that actually gets tested, sitting in a test that fails,
-// sitting in a test that's skipped, or not sitting inside a test at all.
+// added to this repository. Each fixture reproduces one specific way a test
+// title's id can fail to genuinely back a declared claim: living outside the
+// tree that actually gets tested, sitting in a test that fails, or sitting in
+// a test that's skipped.
+//
+// There is no fixture here for the old "orphan tag" case (an id belonging to
+// no test at all). An id now lives inside a test's own title string, and a
+// title string has no position to occupy except inside a real `test(...)`
+// call — the failure mode that case guarded against cannot happen any more,
+// so it has nothing left to reproduce.
 
 const INVARIANTS = fileURLToPath(new URL('../invariants.mjs', import.meta.url))
-// The tag and the declaration marker are assembled at runtime rather than
-// written literally. This file's fixtures contain example contracts and example
-// test files as strings, and a repo-wide scan cannot tell a string literal from
-// a comment — spelling them out here would make every fixture look like a real
-// declaration with no test behind it, and this suite would permanently poison
-// the very check it exists to verify.
-const TAG = `@${'invariant'}`
-const CLAIM = (id) => `- Some guarantee. \`${'test'}: ${id}\`\n`
+// Fixture ids are assembled through this helper rather than written out
+// literally. This file's fixtures are example contracts and example test
+// files built as strings, and the real invariants.mjs — when it scans this
+// actual repository — reads raw source text, not JavaScript semantics: it
+// cannot tell a template-literal expression from a real test title. Spelling
+// a fixture id out literally next to `test('` would make this file's own
+// fixture-construction code look like a genuine, undeclared invariant in this
+// repo's own tree, and this suite would permanently poison the very check it
+// exists to verify.
+const fid = (n) => `INV-fixture-${n}`
+const CLAIM = (id) => `- Some guarantee. \`test: ${id}\`\n`
 
 const HEADER = "import assert from 'node:assert/strict'\nimport { test } from 'node:test'\n\n"
 
@@ -47,33 +56,31 @@ function runInvariants(root, extraArgs = []) {
   }
 }
 
-test('a tag in a file outside the executed test tree does not satisfy a declared invariant', () => {
-  // @invariant INV-invariants-01
+test('INV-invariants-01 a declared id whose test lives outside the executed test tree does not satisfy the claim', () => {
   const root = makeFixtureRoot()
   try {
-    write(root, 'CLAUDE.md', CLAIM('INV-fixture-01'))
+    write(root, 'CLAUDE.md', CLAIM(fid('01')))
     // Sits at the repo root, outside tools/agentic/** — the tree the real
-    // `npm test` (and this tool) actually runs. A tag here must not be able
+    // `npm test` (and this tool) actually runs. An id here must not be able
     // to satisfy the claim just because the file's name ends in `.test.mjs`.
-    write(root, 'rogue.test.mjs', `${HEADER}test('rogue', () => {\n  // ${TAG} INV-fixture-01\n  assert.ok(true)\n})\n`)
+    write(root, 'rogue.test.mjs', `${HEADER}test('${fid('01')} rogue', () => {\n  assert.ok(true)\n})\n`)
 
     const result = runInvariants(root)
-    assert.ok(result.missingTest.includes('INV-fixture-01'))
+    assert.ok(result.missingTest.includes(fid('01')))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('a tag inside a failing test does not satisfy a declared invariant', () => {
-  // @invariant INV-invariants-02
+test('INV-invariants-02 a declared id whose test runs and fails does not satisfy the claim', () => {
   const root = makeFixtureRoot()
   try {
-    write(root, 'CLAUDE.md', CLAIM('INV-fixture-02'))
-    write(root, 'tools/agentic/lib/failing.test.mjs', `${HEADER}test('will fail', () => {\n  // ${TAG} INV-fixture-02\n  assert.ok(false)\n})\n`)
+    write(root, 'CLAUDE.md', CLAIM(fid('02')))
+    write(root, 'tools/agentic/lib/failing.test.mjs', `${HEADER}test('${fid('02')} will fail', () => {\n  assert.ok(false)\n})\n`)
 
     const result = runInvariants(root)
-    assert.equal(result.missingTest.includes('INV-fixture-02'), false, 'the tag exists, so it is not simply "missing"')
-    const entry = result.unverified.find((u) => u.id === 'INV-fixture-02')
+    assert.equal(result.missingTest.includes(fid('02')), false, 'the id exists in a title, so it is not simply "missing"')
+    const entry = result.unverified.find((u) => u.id === fid('02'))
     assert.ok(entry, 'a failing test must not satisfy the declared invariant')
     assert.equal(entry.occurrences[0].state, 'fail')
   } finally {
@@ -81,19 +88,18 @@ test('a tag inside a failing test does not satisfy a declared invariant', () => 
   }
 })
 
-test('a tag inside a skipped test does not satisfy a declared invariant', () => {
-  // @invariant INV-invariants-03
+test('INV-invariants-03 a declared id whose test is skipped does not satisfy the claim', () => {
   const root = makeFixtureRoot()
   try {
-    write(root, 'CLAUDE.md', CLAIM('INV-fixture-03'))
+    write(root, 'CLAUDE.md', CLAIM(fid('03')))
     write(
       root,
       'tools/agentic/lib/skipped.test.mjs',
-      `${HEADER}test('skipped', { skip: true }, () => {\n  // ${TAG} INV-fixture-03\n  assert.ok(true)\n})\n`,
+      `${HEADER}test('${fid('03')} skipped', { skip: true }, () => {\n  assert.ok(true)\n})\n`,
     )
 
     const result = runInvariants(root)
-    const entry = result.unverified.find((u) => u.id === 'INV-fixture-03')
+    const entry = result.unverified.find((u) => u.id === fid('03'))
     assert.ok(entry, 'a skipped test must not satisfy the declared invariant')
     assert.equal(entry.occurrences[0].state, 'skip')
   } finally {
@@ -101,28 +107,7 @@ test('a tag inside a skipped test does not satisfy a declared invariant', () => 
   }
 })
 
-test('a tag not inside any test() call is reported as an orphan, in both online and offline mode', () => {
-  // @invariant INV-invariants-04
-  const root = makeFixtureRoot()
-  try {
-    write(
-      root,
-      'tools/agentic/lib/orphan.test.mjs',
-      `${HEADER}// ${TAG} INV-fixture-04\n\ntest('unrelated', () => {\n  assert.ok(true)\n})\n`,
-    )
-
-    for (const args of [[], ['--offline']]) {
-      const result = runInvariants(root, args)
-      const label = args.join(' ') || 'online'
-      assert.ok(result.orphanTags.some((o) => o.id === 'INV-fixture-04'), `expected an orphan-tag report in ${label} mode`)
-    }
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('duplicate test names across different files do not collide in the tests probe', () => {
-  // @invariant INV-invariants-05
+test('INV-invariants-05 duplicate test names across different files do not collide in the tests probe', () => {
   const root = makeFixtureRoot()
   try {
     write(root, 'tools/agentic/lib/a.test.mjs', `${HEADER}test('same name', () => {\n  assert.ok(true)\n})\n`)
@@ -138,8 +123,7 @@ test('duplicate test names across different files do not collide in the tests pr
   }
 })
 
-test('parseTap records a SKIP directive as its own state, never as a pass, and strips it from the name', () => {
-  // @invariant INV-invariants-06
+test('INV-invariants-06 parseTap records a SKIP directive as its own state, never as a pass, and strips it from the name', () => {
   const tap = [
     'TAP version 13',
     '# Subtest: skipped one',
@@ -156,8 +140,7 @@ test('parseTap records a SKIP directive as its own state, never as a pass, and s
   assert.equal(leaves[0].state, 'skip')
 })
 
-test('parseTap does not count a describe() suite’s own summary line as a test', () => {
-  // @invariant INV-invariants-07
+test('INV-invariants-07 parseTap does not count a describe() suite’s own summary line as a test', () => {
   const tap = [
     'TAP version 13',
     '# Subtest: a suite',
@@ -181,34 +164,50 @@ test('parseTap does not count a describe() suite’s own summary line as a test'
   assert.equal(leaves[0].state, 'pass')
 })
 
-test('--offline mode is announced and does not require execution to satisfy a claim', () => {
-  // @invariant INV-invariants-08
+test('INV-invariants-08 --offline mode is announced and does not require execution to satisfy a claim', () => {
   const root = makeFixtureRoot()
   try {
-    write(root, 'CLAUDE.md', CLAIM('INV-fixture-08'))
+    write(root, 'CLAUDE.md', CLAIM(fid('08')))
     // Would fail if it were ever executed — offline mode must never run it.
-    write(root, 'tools/agentic/lib/wouldfail.test.mjs', `${HEADER}test('would fail', () => {\n  // ${TAG} INV-fixture-08\n  assert.ok(false)\n})\n`)
+    write(root, 'tools/agentic/lib/wouldfail.test.mjs', `${HEADER}test('${fid('08')} would fail', () => {\n  assert.ok(false)\n})\n`)
 
     const result = runInvariants(root, ['--offline'])
     assert.equal(result.mode, 'offline', 'the mode actually used must be visible in the output')
-    assert.equal(result.missingTest.includes('INV-fixture-08'), false)
+    assert.equal(result.missingTest.includes(fid('08')), false)
     assert.equal(result.unverified.length, 0, 'offline mode does not check execution at all')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 })
 
-test('a tag inside a test that actually ran and passed satisfies the declared invariant', () => {
-  // @invariant INV-invariants-09
+test('INV-invariants-09 a declared id whose test actually ran and passed satisfies the claim', () => {
   const root = makeFixtureRoot()
   try {
-    write(root, 'CLAUDE.md', CLAIM('INV-fixture-09'))
-    write(root, 'tools/agentic/lib/ok.test.mjs', `${HEADER}test('passes', () => {\n  // ${TAG} INV-fixture-09\n  assert.ok(true)\n})\n`)
+    write(root, 'CLAUDE.md', CLAIM(fid('09')))
+    write(root, 'tools/agentic/lib/ok.test.mjs', `${HEADER}test('${fid('09')} passes', () => {\n  assert.ok(true)\n})\n`)
 
     const result = runInvariants(root)
-    assert.equal(result.missingTest.includes('INV-fixture-09'), false)
+    assert.equal(result.missingTest.includes(fid('09')), false)
     assert.equal(result.unverified.length, 0)
-    assert.equal(result.orphanTags.length, 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a test whose title carries no id is not treated as covering any invariant, and is not an error', () => {
+  // Most tests will not make a formal claim at all. invariants.mjs must not
+  // choke on that (a plain test is not malformed input) and must not let it
+  // silently look like coverage of some invariant it never named. This test
+  // carries no id itself, on purpose — it is an example of exactly the case
+  // it describes.
+  const root = makeFixtureRoot()
+  try {
+    write(root, 'tools/agentic/lib/plain.test.mjs', `${HEADER}test('just a regular test with no id in its title', () => {\n  assert.ok(true)\n})\n`)
+
+    const result = runInvariants(root)
+    assert.equal(result.tagged, 0, 'a title with no id contributes no occurrence at all')
+    assert.deepEqual(result.undocumented, [])
+    assert.deepEqual(result.missingTest, [])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

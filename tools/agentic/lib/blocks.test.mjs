@@ -10,8 +10,7 @@ test('a block is found and its body replaced, markers untouched', () => {
   assert.match(out, /tail/)
 })
 
-test('markers inside a code fence are examples, not regions', () => {
-  // @invariant INV-blocks-01
+test('INV-blocks-01 markers inside a code fence are examples, not regions', () => {
   // Documenting this syntax means showing it. Without fence awareness, writing
   // the docs for the feature silently corrupts them the next time it runs.
   const text = [
@@ -43,16 +42,14 @@ test('a tilde fence masks just like a backtick fence', () => {
   assert.equal(findBlocks(text).length, 0)
 })
 
-test('an unclosed marker is reported rather than ignored', () => {
-  // @invariant INV-blocks-02
+test('INV-blocks-02 an unclosed marker is reported rather than ignored', () => {
   // The region stops being checked with no other signal, which is the failure
   // that matters: the contract looks maintained and is not.
   assert.deepEqual(danglingBlocks('<!-- gen:orphan -->\nbody\n'), ['orphan'])
   assert.deepEqual(danglingBlocks(doc('x')), [])
 })
 
-test('a block with no generator is left alone, never emptied', async () => {
-  // @invariant INV-blocks-03
+test('INV-blocks-03 a block with no generator is left alone, never emptied', async () => {
   // Emptying it because a generator was renamed would delete the only part of a
   // contract that was actually true.
   const before = doc('precious')
@@ -62,8 +59,7 @@ test('a block with no generator is left alone, never emptied', async () => {
   assert.deepEqual(rendered, [])
 })
 
-test('an empty block body round-trips without corrupting the markers', async () => {
-  // @invariant INV-blocks-04
+test('INV-blocks-04 an empty block body round-trips without corrupting the markers', async () => {
   // indexOf('') returns its search start, so an empty body used to land the
   // replacement inside the opening marker line, producing "<!-- gen:x -->new"
   // and permanently mangling the marker on the very first render.
@@ -72,8 +68,7 @@ test('an empty block body round-trips without corrupting the markers', async () 
   assert.equal(out, '<!-- gen:demo -->\nfilled in\n<!-- /gen:demo -->\n')
 })
 
-test('rendering an already-rendered document is a no-op', async () => {
-  // @invariant INV-blocks-05
+test('INV-blocks-05 rendering an already-rendered document is a no-op', async () => {
   // `contracts` writing a file that `contracts --check` then flags as stale is
   // the tool contradicting itself on the very next run.
   const generators = { demo: () => 'stable output' }
@@ -83,8 +78,7 @@ test('rendering an already-rendered document is a no-op', async () => {
   assert.deepEqual(second.rendered, ['demo'])
 })
 
-test('an unterminated code fence is reported by line, not silently ignored', () => {
-  // @invariant INV-blocks-06
+test('INV-blocks-06 an unterminated code fence is reported by line, not silently ignored', () => {
   // Leaving inFence true to end of file makes every later block invisible to
   // findBlocks and danglingBlocks alike — a check could pass green having
   // examined nothing after the break.
@@ -93,13 +87,11 @@ test('an unterminated code fence is reported by line, not silently ignored', () 
   assert.equal(findBlocks(text).length, 0, 'the block after the broken fence must not be seen')
 })
 
-test('a closed fence reports no unterminated fence', () => {
-  // @invariant INV-blocks-07
+test('INV-blocks-07 a closed fence reports no unterminated fence', () => {
   assert.equal(unterminatedFence(doc('x')), null)
 })
 
-test('two blocks sharing a name are reported as a duplicate, not partially rendered', async () => {
-  // @invariant INV-blocks-08
+test('INV-blocks-08 two blocks sharing a name are reported as a duplicate, not partially rendered', async () => {
   // render() and replaceBlock() both resolve a block by name, so the second
   // declaration is never reachable — it would look maintained while actually
   // going unchecked. That has to fail loudly instead of picking a winner.
@@ -112,7 +104,6 @@ test('two blocks sharing a name are reported as a duplicate, not partially rende
   await assert.rejects(() => render(text, { demo: () => 'x' }, {}))
 })
 
-test('a document with no duplicate names reports none', () => {
-  // @invariant INV-blocks-09
+test('INV-blocks-09 a document with no duplicate names reports none', () => {
   assert.deepEqual(duplicateBlocks(doc('x')), [])
 })

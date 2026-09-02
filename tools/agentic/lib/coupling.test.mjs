@@ -40,8 +40,7 @@ const moduleContract = {
   require: [{ kind: 'changed', paths: ['src/{module}/CLAUDE.md'] }],
 }
 
-test('a captured rule fans out once per module actually touched', () => {
-  // @invariant INV-coupling-01
+test('INV-coupling-01 a captured rule fans out once per module actually touched', () => {
   const violations = evaluate({
     rules: [moduleContract],
     changes: [change('src/core/plan.ts'), change('src/llm/client.ts')],
@@ -51,8 +50,7 @@ test('a captured rule fans out once per module actually touched', () => {
   assert.deepEqual(violations.map((v) => v.bindings.module).sort(), ['core', 'llm'])
 })
 
-test('a rule stays silent for modules the change set never touches', () => {
-  // @invariant INV-coupling-02
+test('INV-coupling-02 a rule stays silent for modules the change set never touches', () => {
   const violations = evaluate({
     rules: [moduleContract],
     changes: [change('README.md')],
@@ -61,8 +59,7 @@ test('a rule stays silent for modules the change set never touches', () => {
   assert.equal(violations.length, 0)
 })
 
-test('the capture is substituted into the requirement, per module', () => {
-  // @invariant INV-coupling-03
+test('INV-coupling-03 the capture is substituted into the requirement, per module', () => {
   const violations = evaluate({
     rules: [moduleContract],
     changes: [change('src/core/plan.ts'), change('src/core/CLAUDE.md')],
@@ -71,8 +68,7 @@ test('the capture is substituted into the requirement, per module', () => {
   assert.equal(violations.length, 0, 'core satisfied its own contract, not some other module\'s')
 })
 
-test('`added` refuses a modified file where a new one was required', () => {
-  // @invariant INV-coupling-04
+test('INV-coupling-04 `added` refuses a modified file where a new one was required', () => {
   const rule = {
     id: 'schema-migration',
     when: ['db/schema.ts'],
@@ -93,8 +89,7 @@ test('`added` refuses a modified file where a new one was required', () => {
   assert.equal(created.length, 0)
 })
 
-test('a label requirement reads the labels on the pull request', () => {
-  // @invariant INV-coupling-05
+test('INV-coupling-05 a label requirement reads the labels on the pull request', () => {
   const rule = {
     id: 'protected',
     when: ['coupling.yaml'],
@@ -105,8 +100,7 @@ test('a label requirement reads the labels on the pull request', () => {
   assert.equal(evaluate({ rules: [rule], changes, range, labels: ['human-approved'] }).length, 0)
 })
 
-test('plan mode never executes a command requirement', () => {
-  // @invariant INV-coupling-06
+test('INV-coupling-06 plan mode never executes a command requirement', () => {
   // The whole value of `--plan` is that an agent can ask what a change will cost
   // before making it. Running the commands would make asking as expensive as doing.
   const rule = {
@@ -122,8 +116,7 @@ test('plan mode never executes a command requirement', () => {
   assert.match(plan[0].obligations[0], /exit 1/)
 })
 
-test('a failing command reports its own output, not just its exit code', () => {
-  // @invariant INV-coupling-07
+test('INV-coupling-07 a failing command reports its own output, not just its exit code', () => {
   // An agent that only learns "the command failed" has to re-run it to find out
   // why, which costs a cycle. The tail of the output is the whole point.
   const violations = evaluate({
@@ -135,8 +128,7 @@ test('a failing command reports its own output, not just its exit code', () => {
   assert.match(violations[0].detail, /the actual reason/)
 })
 
-test('a hostile capture cannot execute anything through a command requirement', () => {
-  // @invariant INV-coupling-08
+test('INV-coupling-08 a hostile capture cannot execute anything through a command requirement', () => {
   const { root, git } = makeRepo()
   try {
     const marker = join(root, 'PWNED-command')
@@ -167,8 +159,7 @@ test('a hostile capture cannot execute anything through a command requirement', 
   }
 })
 
-test('a hostile path cannot execute anything through the whitespace probe', () => {
-  // @invariant INV-coupling-09
+test('INV-coupling-09 a hostile path cannot execute anything through the whitespace probe', () => {
   const { root, git } = makeRepo()
   const cwd = process.cwd()
   try {
@@ -210,8 +201,7 @@ test('a hostile path cannot execute anything through the whitespace probe', () =
   }
 })
 
-test('a whitespace-only edit does not satisfy `rejectWhitespaceOnly`', () => {
-  // @invariant INV-coupling-10
+test('INV-coupling-10 a whitespace-only edit does not satisfy `rejectWhitespaceOnly`', () => {
   const { root, git } = makeRepo()
   const cwd = process.cwd()
   try {
@@ -235,8 +225,7 @@ test('a whitespace-only edit does not satisfy `rejectWhitespaceOnly`', () => {
   }
 })
 
-test('an edit with real content satisfies `rejectWhitespaceOnly`', () => {
-  // @invariant INV-coupling-11
+test('INV-coupling-11 an edit with real content satisfies `rejectWhitespaceOnly`', () => {
   const { root, git } = makeRepo()
   const cwd = process.cwd()
   try {
@@ -260,8 +249,7 @@ test('an edit with real content satisfies `rejectWhitespaceOnly`', () => {
   }
 })
 
-test('an unbound capture in a required path is reported as a rule error, not a crash', () => {
-  // @invariant INV-coupling-12
+test('INV-coupling-12 an unbound capture in a required path is reported as a rule error, not a crash', () => {
   const rule = {
     id: 'typoed-capture',
     // "mod", not "module" -- a rule-authoring typo `when` itself never binds.
@@ -274,8 +262,7 @@ test('an unbound capture in a required path is reported as a rule error, not a c
   assert.match(violations[0].detail, /unbound capture "mod"/)
 })
 
-test('with no base, every path HEAD introduces counts as new, not the working tree against HEAD', () => {
-  // @invariant INV-coupling-13
+test('INV-coupling-13 with no base, every path HEAD introduces counts as new, not the working tree against HEAD', () => {
   const { root, git } = makeRepo()
   const cwd = process.cwd()
   try {
@@ -292,9 +279,9 @@ test('with no base, every path HEAD introduces counts as new, not the working tr
 
     const changes = changedFiles(noBase)
     // A clean working tree would report zero changes here if this diffed the
-    // working tree against HEAD instead of the empty tree against HEAD --
-    // exactly the bug: "no base" must mean "everything in HEAD is new", not
-    // "nothing changed locally".
+    // working tree against HEAD instead of the empty tree against HEAD.
+    // "No base" must mean "everything in HEAD is new", not "nothing changed
+    // locally".
     assert.equal(changes.length, 2)
     assert.ok(changes.every((c) => c.status === 'A'))
   } finally {
@@ -303,8 +290,7 @@ test('with no base, every path HEAD introduces counts as new, not the working tr
   }
 })
 
-test('gate refuses to report success when the change set is empty, and --allow-empty opts back in', () => {
-  // @invariant INV-coupling-14
+test('INV-coupling-14 gate refuses to report success when the change set is empty, and --allow-empty opts back in', () => {
   const { root, git } = makeRepo()
   try {
     writeFileSync(
@@ -314,8 +300,8 @@ test('gate refuses to report success when the change set is empty, and --allow-e
     git('add', '-A')
     git('commit', '-q', '-m', 'init')
     // On a fresh branch with a clean tree, merge-base(main, HEAD) is HEAD
-    // itself, so the change set is genuinely empty -- the exact "on main"
-    // scenario this fix targets, reproduced without any uncommitted state.
+    // itself, so the change set is genuinely empty -- reproduced here without
+    // any uncommitted state.
 
     assert.throws(
       () => execFileSync('node', [GATE], { cwd: root, encoding: 'utf8', env: GATE_ENV }),
@@ -335,8 +321,7 @@ test('gate refuses to report success when the change set is empty, and --allow-e
   }
 })
 
-test('gate --plan normalises a "./" prefix, a trailing slash, and an absolute path to the same result', () => {
-  // @invariant INV-coupling-15
+test('INV-coupling-15 gate --plan normalises a "./" prefix, a trailing slash, and an absolute path to the same result', () => {
   // realpathSync: see the comment in makeRepo() -- an absolute path built
   // from the unresolved tmpdir would not match the subprocess's own cwd.
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'coupling-test-')))
@@ -359,8 +344,7 @@ test('gate --plan normalises a "./" prefix, a trailing slash, and an absolute pa
   }
 })
 
-test('gate rejects a malformed manifest before evaluating anything, naming the rule and the problem', () => {
-  // @invariant INV-coupling-16
+test('INV-coupling-16 gate rejects a malformed manifest before evaluating anything, naming the rule and the problem', () => {
   const root = mkdtempSync(join(tmpdir(), 'coupling-test-'))
   try {
     // `when` written as a string instead of a list: `matchList` would otherwise
@@ -383,8 +367,7 @@ test('gate rejects a malformed manifest before evaluating anything, naming the r
   }
 })
 
-test('a capture containing glob metacharacters cannot widen the rule it fills', () => {
-  // @invariant INV-coupling-17
+test('INV-coupling-17 a capture containing glob metacharacters cannot widen the rule it fills', () => {
   // Same root cause as the injection tests above: a capture is a real path
   // segment, so its content is attacker-controlled. Here the blast radius is a
   // requirement that quietly matches more paths than it names, rather than code
@@ -404,8 +387,7 @@ test('a capture containing glob metacharacters cannot widen the rule it fills', 
   assert.equal(violations[0].bindings.module, 'ev*l')
 })
 
-test('deleting the target does not satisfy a `changed` requirement', () => {
-  // @invariant INV-coupling-18
+test('INV-coupling-18 deleting the target does not satisfy a `changed` requirement', () => {
   // Otherwise the cheapest way to satisfy "document what you did" is to delete
   // the document. Removing a whole module along with its contract is the
   // legitimate case, and it is rare enough to waive deliberately.
@@ -420,4 +402,29 @@ test('deleting the target does not satisfy a `changed` requirement', () => {
     range,
   })
   assert.equal(violations.length, 1)
+})
+
+test('INV-coupling-19 adding blank lines does not satisfy `rejectWhitespaceOnly`', () => {
+  // `-w` alone still counts an inserted empty line as a real change, so without
+  // --ignore-blank-lines the cheapest way to satisfy a documentation rule is to
+  // press enter twice.
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    writeFileSync(join(root, 'f.txt'), 'line one\n')
+    git('add', '-A'); git('commit', '-q', '-m', 'init')
+    const base = git('rev-parse', 'HEAD').trim()
+
+    writeFileSync(join(root, 'f.txt'), 'line one\n\n\n')
+    git('add', '-A'); git('commit', '-q', '-m', 'blank lines only')
+    const head = git('rev-parse', 'HEAD').trim()
+
+    const rule = { id: 'ws', when: ['f.txt'], require: [{ kind: 'changed', paths: ['f.txt'], rejectWhitespaceOnly: true }] }
+    process.chdir(root)
+    const violations = evaluate({ rules: [rule], changes: [change('f.txt')], range: { base, head, source: 'event' } })
+    assert.equal(violations.length, 1)
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
 })
