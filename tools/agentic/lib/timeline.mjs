@@ -174,7 +174,15 @@ export function openRegressions(entries) {
     if (RETIRES_SUBJECT.has(e.kind)) {
       // '\0' can't appear in a kind or subject string, so it is a safe
       // separator: the same convention this file's own id() already uses.
-      for (const k of open.keys()) if (k.slice(k.indexOf('\0') + 1) === e.subject) open.delete(k)
+      for (const [k, open_] of open) {
+        if (k.slice(k.indexOf('\0') + 1) !== e.subject) continue
+        // A subject that was passing and then vanished has nothing left to
+        // check. A subject that was FAILING and then vanished was deleted, and
+        // deletion is not a repair — retiring it here would make "delete the
+        // failing test" the cheapest way to clear a regression, which is the
+        // single most tempting shortcut available to an agent.
+        if (open_.to !== 'fail') open.delete(k)
+      }
       continue
     }
     const k = `${family(e.kind)}\0${e.subject}`

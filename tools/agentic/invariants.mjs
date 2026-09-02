@@ -228,6 +228,12 @@ function main() {
   const missingTest = [...declared.keys()].filter((id) => !tagged.has(id))
   const undocumented = [...tagged].filter((id) => !declared.has(id))
   const duplicated = [...declared.entries()].filter(([, at]) => at.length > 1)
+  // "Exactly one test" has to mean exactly one on both sides. Two tests
+  // carrying the same tag means deleting either leaves the claim looking
+  // covered, so neither is really load-bearing.
+  const duplicateTags = [...occurrences.entries()]
+    .map(([id, at]) => [id, at.filter((o, i, all) => all.findIndex((x) => x.testName === o.testName && x.file === o.file) === i)])
+    .filter(([, at]) => at.length > 1)
 
   // Declared, tagged, but the tag's own test did not execute-and-pass. Only
   // meaningful in online mode — offline mode never checks execution, so this
@@ -238,7 +244,7 @@ function main() {
     .filter(([, occs]) => !occs.some(isProven))
     .map(([id, occs]) => ({ id, occurrences: occs.map((o) => ({ ...o, state: stateOf(o) })) }))
 
-  const problems = missingTest.length + undocumented.length + duplicated.length + unverified.length + orphanTags.length
+  const problems = missingTest.length + undocumented.length + duplicated.length + duplicateTags.length + unverified.length + orphanTags.length
 
   if (json) {
     console.log(JSON.stringify({
@@ -248,6 +254,7 @@ function main() {
       missingTest,
       undocumented,
       duplicated: duplicated.map(([id, at]) => ({ id, at })),
+      duplicateTags: duplicateTags.map(([id, at]) => ({ id, at })),
       unverified,
       orphanTags,
     }, null, 2))
@@ -294,6 +301,12 @@ function main() {
     console.error(`${c.red}✗${c.off} ${c.bold}${id}${c.off} ${c.dim}tested but not in any contract${c.off}`)
     console.error(`  ${c.dim}tagged at${c.off}    ${at.file}:${at.line}`)
     console.error(`  ${c.dim}fix${c.off}          add the invariant to the module's contract; an unwritten rule gets deleted by the next agent`)
+    console.error('')
+  }
+  for (const [id, at] of duplicateTags) {
+    console.error(`${c.red}✗${c.off} ${c.bold}${id}${c.off} ${c.dim}tagged in more than one test${c.off}`)
+    console.error(`  ${c.dim}at${c.off}           ${at.map((a) => `${a.file}:${a.line}`).join(', ')}`)
+    console.error(`  ${c.dim}fix${c.off}          one claim, one test. Deleting either of these would leave the claim looking covered.`)
     console.error('')
   }
   for (const [id, at] of duplicated) {

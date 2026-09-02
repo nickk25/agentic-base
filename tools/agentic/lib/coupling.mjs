@@ -19,7 +19,7 @@
  */
 
 import { execFileSync, execSync } from 'node:child_process'
-import { added, touched } from './changed.mjs'
+import { added, present, touched } from './changed.mjs'
 import { escapeGlob, matchList, substitute, substituteStrict } from './glob.mjs'
 
 /**
@@ -144,6 +144,7 @@ function changedBeyondWhitespace(range, path) {
  */
 export function evaluate({ rules, changes, range, labels = [], plan = false }) {
   const touchedPaths = touched(changes)
+  const presentPaths = present(changes)
   const addedPaths = added(changes)
   /** @type {Violation[]} */
   const violations = []
@@ -216,7 +217,7 @@ export function evaluate({ rules, changes, range, labels = [], plan = false }) {
           violations.push({ ...base, required: `a well-formed rule`, detail: err.message })
           continue
         }
-        const pool = req.kind === 'added' ? addedPaths : touchedPaths
+        const pool = req.kind === 'added' ? addedPaths : presentPaths
         let hits = pool.filter((p) => matchList(wanted, p))
 
         if (req.kind === 'changed' && req.rejectWhitespaceOnly) {

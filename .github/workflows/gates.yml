@@ -35,7 +35,12 @@ jobs:
       - name: Invariants anchored to tests
         run: npm run invariants
 
+      # Pull requests only. A push has no base/head pair, the range collapses to
+      # the merge base, and the gate correctly refuses to call that a pass — so
+      # running it here would paint every merge red and teach agents that red on
+      # `main` is normal, which is the one lesson this repository cannot afford.
       - name: Coupling rules
+        if: github.event_name == 'pull_request'
         env:
           # Two fixed SHAs. Never branch names — main moves while the pull
           # request is open. On a push there is no pull request, so the engine
@@ -49,6 +54,8 @@ jobs:
     # Only on main: a snapshot is a measurement of what landed, not of a proposal.
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -56,6 +63,19 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run state
+
+      # Without this the timeline is a dead feature: each run starts with an
+      # empty snapshot store, diffs nothing against nothing, and reports zero
+      # transitions forever. A push made with GITHUB_TOKEN does not re-trigger
+      # workflows, so committing back here cannot loop.
+      - name: Keep the snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agentic/snapshots docs/state.json docs/state.html
+          git diff --cached --quiet || git commit -m "state: snapshot ${GITHUB_SHA:0:7} [skip ci]"
+          git push
+
       - uses: actions/upload-artifact@v4
         with:
           name: state

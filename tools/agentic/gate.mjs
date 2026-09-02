@@ -205,7 +205,11 @@ function main() {
 
   if (!violations.length) {
     console.log(
-      `${c.green}✓${c.off} ${changes.length} file${changes.length === 1 ? '' : 's'} changed, ${rulesFired} rule${rulesFired === 1 ? '' : 's'} fired, every coupling rule satisfied.`,
+      changes.length
+        ? `${c.green}✓${c.off} ${changes.length} file${changes.length === 1 ? '' : 's'} changed, ${rulesFired} rule${rulesFired === 1 ? '' : 's'} fired, every coupling rule satisfied.`
+        // Nothing was measured and that was explicitly allowed. Saying "every
+        // rule satisfied" here would be the same false green wearing a flag.
+        : `${c.green}✓${c.off} no files changed; nothing to check (--allow-empty).`,
     )
     return
   }

@@ -90,5 +90,16 @@ export function changedFiles(range) {
 /** Every path the range touches, deletions included. */
 export const touched = (changes) => changes.map((c) => c.path)
 
+/**
+ * Paths that still exist after the change.
+ *
+ * A `changed` requirement asks for a change *in* a file, and deleting it is not
+ * that: without this, the cheapest way to satisfy "document what you did" is to
+ * delete the document. Deleting a whole module together with its contract is
+ * the legitimate case, and it is rare enough to be waived deliberately rather
+ * than allowed silently.
+ */
+export const present = (changes) => changes.filter((c) => c.status !== 'D').map((c) => c.path)
+
 /** Paths this range ADDS. Modifying an existing file does not count. */
 export const added = (changes) => changes.filter((c) => c.status === 'A').map((c) => c.path)

@@ -96,106 +96,38 @@ The limit is worth stating plainly: this proves an invariant is *covered*, never
 that its test is any good. A test that asserts nothing satisfies it. Closing that
 gap needs mutation testing, which is not here yet.
 
-## Unreleased
+## Deletion is not a repair
 
-- First version: four obligation kinds, captured patterns, plan mode.
-- Generated contract regions, pluggable generators, invariant bijection check.
-- Fence-aware scanning: `gen:` markers inside ``` blocks are examples, not regions.
+Two shortcuts an agent finds quickly, both closed:
 
-## State and the timeline
+- Deleting the file a `changed` requirement points at no longer satisfies it.
+  Removing a module together with its contract is the legitimate case; it is
+  rare enough to waive on purpose rather than allow silently.
+- Deleting a failing test no longer clears its open regression. Retiring a
+  vanished subject is right when it was healthy and simply no longer exists to
+  measure; applied to a failing one it makes deletion the cheapest repair
+  available.
 
-`state snapshot` measures the repository through the probes in
-`tools/agentic/probes/` and keeps the result under `.agentic/snapshots/`.
-`state render` diffs consecutive snapshots into `docs/state.json`, and renders
-`docs/state.html` as a view of it. Agents read the JSON; the HTML is never the
-source.
+## Snapshots persist
 
-A timeline entry is a **state transition, not a commit**. A merge that moves
-nothing measurable produces no entry at all. That is deliberate: a log of commits
-tells you the agents were busy, and this is meant to tell you whether the
-software got better.
-
-Severity is derived, never chosen — nothing asks anyone's opinion about whether a
-change was good. Two rules carry most of the weight:
-
-- Something that appears already working is `neutral`, not `up`. Otherwise the
-  cheapest way to manufacture progress is to declare things that already pass.
-- A test that arrives already failing is `down`, however new it is.
-
-`usefulTransitionRate` is improvements divided by **snapshots**, not by entries,
-so a burst of merges that changed nothing drags it down. It is the first number
-to read: a repository can generate a great deal of activity while getting worse,
-and that combination is what this is for.
-
-Probes measure and never narrate. Line coverage, test count, commits per week and
-lines added are deliberately absent — agents inflate all four without moving
-quality, and a number that only goes up stops being read.
-- Snapshots, timeline diffing and the state page.
-
-## Refusing to report a green that measured nothing
-
-Three checks now fail rather than pass when they had nothing to examine, each
-with an explicit `--allow-empty` for the legitimate case:
-
-- `gate` with an empty change set. The merge-base fallback makes this the normal
-  situation on `main` and on a clean tree, and it used to print a checkmark.
-- `contracts --check` when it found no generated regions anywhere.
-- The success lines now carry their own evidence — files evaluated, rules fired,
-  blocks checked — so a green result can be told apart from a green absence.
-
-This is the single most important class of bug in a repository like this. A
-control that reports success without doing anything is worse than no control,
-because it is trusted.
-
-## Untrusted captures
-
-A capture is a real path segment, so its contents are controlled by whoever can
-name a file. Two consequences, one severe:
-
-- **Shell.** A `command` requirement is a shell string. A directory named
-  `x; rm -rf .; false` used to execute. Captures are now validated against a
-  strict allowlist and the rule is refused, by name, if a value falls outside it.
-  Where a real argv is possible — the whitespace probe — no shell is used at all.
-- **Patterns.** A directory named `evil*` substituted into a requirement used to
-  be recompiled as a live wildcard, widening the very requirement it was meant to
-  pin down. Captured values are escaped on the way in; the pattern author's own
-  globs are untouched. The pattern language gained a backslash escape for this.
-
-Same root cause both times: attacker-controlled text re-entering a language that
-gives some characters meaning.
-
-## Anchoring that actually anchors
-
-`invariants` no longer accepts a tag on faith. By default it runs the suite,
-associates each `@invariant` tag with its enclosing `test(...)` call by scanning
-outward through bracket nesting, and requires that test to have executed and
-passed. A tag in a file no runner touches, inside a failing test, or inside a
-skipped one, no longer satisfies a claim; each lands in its own bucket
-(`missingTest`, `unverified`, `orphanTags`) so the reason is never guessed.
-`--offline` keeps the weaker structural check, and the mode in effect is always
-printed — a check whose strictness is invisible is not a check.
-
-Test names are read as static string literals and unescaped before comparison.
-A dynamically built name cannot be resolved this way; that ceiling is real and
-named rather than hidden.
-
-## Manifest validation
-
-A malformed rule is rejected before evaluation, with the rule named. `when:` as a
-string rather than a list is the motivating case: it is valid YAML, and the
-matcher would iterate it character by character, so the rule fires on unrelated
-paths and stays silent on the intended one. It looks like a working rule while
-doing nothing its author meant. Unknown keys are reported rather than ignored,
-because a typo in a requirement key is the same failure wearing a different hat.
-
-## Snapshots refuse a dirty tree
-
-A snapshot stamped with `HEAD` while uncommitted changes sit on disk describes
-code that commit never contained. It is refused by default; the opt-in marks the
-snapshot `dirty`, forces the page red, and says so, because a measurement that
-cannot state what it measured is worse than none.
+The state job commits the snapshot store back to `main`. Without it the timeline
+was a dead feature: every run began with an empty store, diffed nothing against
+nothing, and reported zero transitions forever. A push made with `GITHUB_TOKEN`
+does not re-trigger workflows, so this cannot loop.
 
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
   anchoring, manifest validation, dirty-snapshot refusal, retiring subjects.
+- First version: four obligation kinds, captured patterns, plan mode.
+- Generated contract regions, pluggable generators, invariant bijection check.
+- Fence-aware scanning: `gen:` markers inside ``` blocks are examples, not regions.
+- Something that appears already working is `neutral`, not `up`. Otherwise the
+- A test that arrives already failing is `down`, however new it is.
+- Snapshots, timeline diffing and the state page.
+- `gate` with an empty change set. The merge-base fallback makes this the normal
+- `contracts --check` when it found no generated regions anywhere.
+- The success lines now carry their own evidence — files evaluated, rules fired,
+- **Shell.** A `command` requirement is a shell string. A directory named
+- **Patterns.** A directory named `evil*` substituted into a requirement used to
+- Deletion loopholes closed, snapshots persisted, duplicate tags rejected, empty-but-allowed results reported honestly.

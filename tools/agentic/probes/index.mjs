@@ -211,9 +211,17 @@ export const coupling = {
     const r = run('node', ['tools/agentic/gate.mjs', '--json'])
     try {
       const d = JSON.parse(r.out)
-      return { violations: d.violations.map((v) => ({ rule: v.ruleId, bindings: v.bindings, required: v.required })) }
+      // A refusal carries `error` and an empty `violations`, so reading only
+      // `violations` turns "the gate declined to measure anything" into "the
+      // gate found nothing wrong" — the same false green the gate itself was
+      // just taught to refuse, laundered one layer up.
+      if (d.error) return { violations: [], error: d.error, measured: false }
+      return {
+        measured: true,
+        violations: d.violations.map((v) => ({ rule: v.ruleId, bindings: v.bindings, required: v.required })),
+      }
     } catch {
-      return { violations: [], error: r.out.trim().slice(0, 200) }
+      return { violations: [], error: r.out.trim().slice(0, 200), measured: false }
     }
   },
 }

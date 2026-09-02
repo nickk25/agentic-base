@@ -135,6 +135,9 @@ for, and it is not here yet.
 - `gate --plan` normalises a `./` prefix, a trailing slash, and an absolute in-repo path to the same result as the bare relative path. `test: INV-coupling-15`
 - The gate rejects a malformed manifest, naming the offending rule and the problem, before evaluating anything. `test: INV-coupling-16`
 - A capture containing glob metacharacters cannot widen the requirement it fills. `test: INV-coupling-17`
+- Deleting the target does not satisfy a `changed` requirement; otherwise the cheapest way to satisfy "document what you did" is to delete the document. `test: INV-coupling-18`
+- Deleting a failing test does not clear its open regression. `test: INV-timeline-12`
+- Removing a healthy subject does retire its record, since there is nothing left to check. `test: INV-timeline-13`
 - An escaped metacharacter is a literal, not a wildcard, so a captured value can re-enter a pattern without becoming one. `test: INV-glob-09`
 - Escaping a captured value leaves the pattern author's own globs intact. `test: INV-glob-10`
 - A `gen:` marker inside a code fence is an example, not a region. Documenting

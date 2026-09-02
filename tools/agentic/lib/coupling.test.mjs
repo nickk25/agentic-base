@@ -329,7 +329,7 @@ test('gate refuses to report success when the change set is empty, and --allow-e
     )
 
     const out = execFileSync('node', [GATE, '--allow-empty'], { cwd: root, encoding: 'utf8', env: GATE_ENV })
-    assert.match(out, /every coupling rule satisfied/)
+    assert.match(out, /nothing to check/)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -402,4 +402,22 @@ test('a capture containing glob metacharacters cannot widen the rule it fills', 
   })
   assert.equal(violations.length, 1, "another module's contract must not satisfy this one")
   assert.equal(violations[0].bindings.module, 'ev*l')
+})
+
+test('deleting the target does not satisfy a `changed` requirement', () => {
+  // @invariant INV-coupling-18
+  // Otherwise the cheapest way to satisfy "document what you did" is to delete
+  // the document. Removing a whole module along with its contract is the
+  // legitimate case, and it is rare enough to waive deliberately.
+  const rule = {
+    id: 'module-contract',
+    when: ['src/{module}/**', '!src/{module}/CLAUDE.md'],
+    require: [{ kind: 'changed', paths: ['src/{module}/CLAUDE.md'] }],
+  }
+  const violations = evaluate({
+    rules: [rule],
+    changes: [change('src/core/plan.ts'), change('src/core/CLAUDE.md', 'D')],
+    range,
+  })
+  assert.equal(violations.length, 1)
 })

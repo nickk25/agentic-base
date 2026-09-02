@@ -125,3 +125,30 @@ test('a dirty working tree is refused by default, and only proceeds with explici
   assert.equal(refuseDirty(true, true), null)
   assert.equal(typeof refuseDirty(true, false), 'string')
 })
+
+test('deleting a failing test does not clear its regression', () => {
+  // @invariant INV-timeline-12
+  // Retiring a vanished subject is right when it was healthy and simply no
+  // longer exists to check. Applied to a FAILING subject it makes deletion the
+  // cheapest repair available, which is the shortcut an agent will find first.
+  const withTests = (sha, byName) => ({
+    ts: '2026-09-02T00:00:00.000Z', sha, subject: sha,
+    probes: { tests: { byName, failing: Object.entries(byName).filter(([, v]) => v === 'fail').map(([k]) => k) } },
+  })
+  const entries = [
+    ...diff(withTests('a', { one: 'pass' }), withTests('b', { one: 'fail' })),
+    ...diff(withTests('b', { one: 'fail' }), withTests('c', {})),
+  ]
+  assert.equal(openRegressions(entries).length, 1, 'the regression survives the deletion')
+})
+
+test('removing a healthy subject does retire its record', () => {
+  // @invariant INV-timeline-13
+  const snap = (sha, mods) => ({ ts: '2026-09-02T00:00:00.000Z', sha, subject: sha, probes: { modules: mods } })
+  const entries = [
+    ...diff(snap('a', { core: { lines: 10, budget: 5, overBudget: false } }),
+            snap('b', { core: { lines: 99, budget: 5, overBudget: true } })),
+    ...diff(snap('b', { core: { lines: 99, budget: 5, overBudget: true } }), snap('c', {})),
+  ]
+  assert.equal(openRegressions(entries).length, 0)
+})
