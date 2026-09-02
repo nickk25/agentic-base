@@ -13,7 +13,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { isAbsolute, join, relative } from 'node:path'
 import { builtins } from './generators/index.mjs'
 import { danglingBlocks, duplicateBlocks, findBlocks, render, unterminatedFence } from './lib/blocks.mjs'
 import { loadManifest } from './lib/manifest.mjs'
@@ -77,7 +77,7 @@ async function main() {
   // Goes through the same loader gate.mjs uses, so a manifest shape that
   // would crash a generator (see the module comment in lib/manifest.mjs) is
   // reported by name here instead of surfacing as an unhandled TypeError.
-  const { rules, problems } = loadManifest(join(ROOT, MANIFEST))
+  const { rules, problems } = loadManifest((isAbsolute(MANIFEST) ? MANIFEST : join(ROOT, MANIFEST)))
   const manifestErrors = problems.filter((p) => p.level === 'error')
   if (manifestErrors.length) {
     if (json) {

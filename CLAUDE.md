@@ -97,6 +97,7 @@ Generated from `coupling.yaml`. Do not edit this section by hand.
 | `contracts-current` | `tools/agentic/**`, `package.json`, `coupling.yaml`, `**/CLAUDE.md` | `npm run contracts:check` to pass |
 | `invariants-anchored` | `tools/agentic/**`, `**/CLAUDE.md` | `npm run invariants` to pass |
 | `protected-controls` | `coupling.yaml`, `.github/workflows/**` | the `human-approved` label |
+| `measured-history` | `.agentic/snapshots/**`, `docs/state.json`, `docs/state.html` | the `human-approved` label |
 <!-- /gen:coupling -->
 
 ## 6. Invariants of the engine
@@ -137,6 +138,7 @@ for, and it is not here yet.
 - A capture containing glob metacharacters cannot widen the requirement it fills. `test: INV-coupling-17`
 - Deleting the target does not satisfy a `changed` requirement; otherwise the cheapest way to satisfy "document what you did" is to delete the document. `test: INV-coupling-18`
 - Adding blank lines does not satisfy `rejectWhitespaceOnly`. `test: INV-coupling-19`
+- A mode-only change does not satisfy `rejectWhitespaceOnly`; zero bytes changed is not a change. `test: INV-coupling-20`
 - Deleting a failing test does not clear its open regression. `test: INV-timeline-12`
 - A rule with no `id` is rejected by name instead of being silently accepted. `test: INV-manifest-01`
 - A `when` written as a string instead of a list is rejected instead of being iterated character by character. `test: INV-manifest-02`

@@ -52,7 +52,11 @@ import { discoverTestFiles, parseTap, runTapForAll } from './probes/index.mjs'
 
 const ROOT = process.cwd()
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next'])
-const ID = '[A-Z]{2,}-[a-zA-Z0-9_]+-[0-9]+'
+// Deliberately anchored to `INV-`. Without the prefix this matched any
+// capitalised-token-dash-word-dash-number, so an ordinary title like
+// `HTTP-status-500 is mapped to a retry` was read as an undeclared invariant
+// and broke the check for a repository that had done nothing wrong.
+const ID = 'INV-[a-zA-Z0-9_]+-[0-9]+'
 
 const c = process.stdout.isTTY
   ? { red: '\x1b[31m', green: '\x1b[32m', dim: '\x1b[2m', bold: '\x1b[1m', off: '\x1b[0m' }

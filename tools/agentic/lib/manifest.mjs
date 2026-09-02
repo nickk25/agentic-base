@@ -176,7 +176,15 @@ export function validateRules(rules) {
  * @returns {{ rules: any[], problems: ManifestProblem[] }}
  */
 export function parseManifest(raw) {
-  const doc = parse(raw)
+  // A YAML syntax error is a manifest problem like any other, and an agent
+  // reading a raw parser stack learns nothing about which file to open.
+  let doc
+  try {
+    doc = parse(raw)
+  } catch (err) {
+    const firstLine = String(err.message).split('\n')[0]
+    return { rules: [], problems: [{ level: 'error', ruleId: null, message: `could not be parsed as YAML: ${firstLine}` }] }
+  }
   const rules = doc?.rules
   if (!Array.isArray(rules) || rules.length === 0) {
     return { rules: [], problems: [{ level: 'error', ruleId: null, message: 'has no rules declared' }] }

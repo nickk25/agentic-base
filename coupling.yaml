@@ -84,7 +84,7 @@ rules:
     require:
       - kind: command
         run: "npm run invariants"
-        fix: "Either write the missing test and tag it `// @invariant <id>`, or remove the claim from the contract."
+        fix: "Either write the missing test, putting the id at the front of its title, or remove the claim from the contract."
 
   # The controls that protect every other control. Without this, an agent can
   # simply delete the rule that is in its way.
@@ -97,3 +97,17 @@ rules:
       - kind: label
         name: human-approved
         fix: "Add the `human-approved` label to this pull request by hand once you have read the diff yourself."
+
+  # The measurement of record. Hand-editing it would let an agent write its own
+  # history — the one thing the state page exists to prevent — so touching it
+  # outside CI needs a person to say so out loud.
+  - id: measured-history
+    why: A timeline an agent can edit is a story, not a measurement.
+    when:
+      - ".agentic/snapshots/**"
+      - "docs/state.json"
+      - "docs/state.html"
+    require:
+      - kind: label
+        name: human-approved
+        fix: "These are written by CI. If you genuinely need to change them by hand, say so with the label."

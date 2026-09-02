@@ -86,7 +86,7 @@ consuming repository as another file in that folder exporting `{ name, generate 
 
 ```
 contract    - A message already in the target language produces no plan. `test: INV-core-01`
-test file   // @invariant INV-core-01
+test file   test('INV-core-01 a message already in the target language produces no plan', ...)
 ```
 
 Both directions fail. Documented with no test is a claim nobody checks; tested
@@ -162,6 +162,27 @@ The state probe no longer counts a declared invariant whose test *failed* as
 covered. That single line discarded the whole point of running the suite: the
 failure would have appeared on the state page as coverage.
 
+## One definition of the suite
+
+`package.json`, the probes and the invariant check all point at the same test
+tree, and the glob is quoted so Node expands it. Under `sh`, `**` collapses to
+`*` and reaches only one level down — which let a claim be proven by a test the
+real suite never ran, while a comment in the probe asserted the two were
+mirrored.
+
+Invariant ids are anchored to the `INV-` prefix. Without it the pattern matched
+any capitalised-token-dash-word-dash-number, so an ordinary title such as
+`HTTP-status-500 is mapped to a retry` was read as an undeclared invariant and
+failed the check for a repository that had done nothing wrong.
+
+## What counts as a change
+
+`rejectWhitespaceOnly` reads the counts, not the presence of output. A mode-only
+change — `chmod +x` — still prints a `--numstat` row, so a file being mentioned
+is not the same as anything inside it moving. Blank lines, spaces, tabs and file
+modes all fail to satisfy it; a binary file is taken at its word, since we cannot
+see inside it to argue otherwise.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -180,3 +201,4 @@ failure would have appeared on the state page as coverage.
 - Deletion loopholes closed, snapshots persisted, duplicate tags rejected, empty-but-allowed results reported honestly.
 - Ids in test titles, shared manifest validation, blank lines no longer count as a change.
 - it() recognised, inert tests rejected, TAP views reconciled, failing claims no longer counted as covered.
+- INV- prefix required, one suite definition, mode-only changes rejected, YAML errors named, state job serialised.

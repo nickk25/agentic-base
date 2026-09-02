@@ -129,7 +129,20 @@ function changedBeyondWhitespace(range, path) {
       ['diff', '-w', '--ignore-blank-lines', '--numstat', `${range.base}...${range.head}`, '--', path],
       { encoding: 'utf8' },
     )
-    return out.trim().length > 0
+    // A mode-only change (chmod +x) still prints a row — "0 0 path" — so the
+    // presence of output means the file was mentioned, not that anything in it
+    // moved. Read the counts.
+    return out
+      .trim()
+      .split('\n')
+      .filter(Boolean)
+      .some((row) => {
+        const [addedLines, removedLines] = row.split('\t')
+        // A binary file reports "-\t-"; treat that as a real change, since we
+        // cannot see inside it to argue otherwise.
+        if (addedLines === '-' || removedLines === '-') return true
+        return Number(addedLines) + Number(removedLines) > 0
+      })
   } catch {
     return true // Never fail a pull request because the whitespace probe itself broke.
   }

@@ -22,14 +22,10 @@ import { join, relative } from 'node:path'
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.agentic'])
 const ROOT = process.cwd()
 
-// The scope a test file has to live in to be considered "a test that runs" —
-// deliberately the same directory `package.json`'s `test` script points at
-// (`node --test 'tools/agentic/**/*.test.mjs'`). We can't read that script's
-// glob programmatically without depending on package.json (out of scope for
-// this fix), so the constant below hard-mirrors it. A `*.test.mjs` file living
-// outside this tree is invisible to both this probe and to `invariants.mjs`,
-// on purpose: it is invisible to the real `npm test` too, so a tag inside it
-// must not be able to satisfy a declared invariant.
+// The one definition of "the suite". `package.json`'s test script points Node
+// at this same pattern, quoted so Node expands it rather than sh — sh collapses
+// `**` to `*` and would reach only one level down, which would let a claim be
+// proven by a test the suite never runs.
 const TEST_DIR = 'tools/agentic'
 const TEST_FILE_RE = /\.test\.mjs$/
 

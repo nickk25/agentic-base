@@ -101,6 +101,10 @@ function build() {
   const inv = latest.probes.invariants ?? {}
   const failing = latest.probes.tests?.failing ?? []
   const violations = latest.probes.coupling?.violations ?? []
+  // `measured: false` means the gate declined to evaluate anything, not that it
+  // found nothing. Reading only `violations` turns the refusal back into a green
+  // zero one layer above the probe that was fixed to report it.
+  const unmeasured = latest.probes.coupling?.measured === false
   const dirty = latest.dirty === true
 
   return {
@@ -109,7 +113,7 @@ function build() {
     // A dirty snapshot goes red regardless of its other numbers: those numbers
     // may describe code that was never committed, and trusting them is the
     // exact failure this whole file exists to catch.
-    status: dirty || failing.length || violations.length || open.length ? 'red' : inv.uncovered?.length ? 'amber' : 'green',
+    status: dirty || failing.length || violations.length || open.length ? 'red' : unmeasured || inv.uncovered?.length ? 'amber' : 'green',
     numbers: {
       invariantsCovered: inv.covered ?? 0,
       invariantsDeclared: inv.declared ?? 0,
@@ -118,6 +122,7 @@ function build() {
     },
     redZones: [
       ...(dirty ? [{ what: 'dirty snapshot', detail: 'The latest snapshot measured a working tree with uncommitted changes.' }] : []),
+      ...(unmeasured ? [{ what: 'coupling not measured', detail: 'The gate had no change set to evaluate, so this says nothing about whether the rules hold.' }] : []),
       ...failing.map((t) => ({ what: 'failing test', detail: t })),
       ...violations.map((v) => ({ what: 'coupling violation', detail: `${v.rule}: ${v.required}` })),
       ...(inv.uncovered ?? []).map((i) => ({ what: 'invariant with no test', detail: i })),

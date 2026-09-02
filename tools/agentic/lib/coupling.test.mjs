@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -423,6 +423,31 @@ test('INV-coupling-19 adding blank lines does not satisfy `rejectWhitespaceOnly`
     process.chdir(root)
     const violations = evaluate({ rules: [rule], changes: [change('f.txt')], range: { base, head, source: 'event' } })
     assert.equal(violations.length, 1)
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('INV-coupling-20 a mode-only change does not satisfy `rejectWhitespaceOnly`', () => {
+  // `--numstat` prints a row for a chmod — "0 0 path" — so the presence of
+  // output means the file was mentioned, not that anything inside it moved.
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    const file = join(root, 'f.sh')
+    writeFileSync(file, '#!/bin/sh\necho hi\n')
+    git('add', '-A'); git('commit', '-q', '-m', 'init')
+    const base = git('rev-parse', 'HEAD').trim()
+
+    chmodSync(file, 0o755)
+    git('add', '-A'); git('commit', '-q', '-m', 'mode only')
+    const head = git('rev-parse', 'HEAD').trim()
+
+    const rule = { id: 'ws', when: ['f.sh'], require: [{ kind: 'changed', paths: ['f.sh'], rejectWhitespaceOnly: true }] }
+    process.chdir(root)
+    const violations = evaluate({ rules: [rule], changes: [change('f.sh')], range: { base, head, source: 'event' } })
+    assert.equal(violations.length, 1, 'zero bytes changed is not a change')
   } finally {
     process.chdir(cwd)
     rmSync(root, { recursive: true, force: true })
