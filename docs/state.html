@@ -34,7 +34,7 @@ footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
   <div class="hero"><div class="dot"></div><p>Everything declared is holding.</p></div>
 
   <div class="nums">
-    <div class="num"><b>81/81</b><span>invariants with a test</span></div>
+    <div class="num"><b>84/84</b><span>invariants with a test</span></div>
     <div class="num"><b>0</b><span>failing tests</span></div>
     <div class="num"><b>0</b><span>open regressions</span></div>
     <div class="num"><b>0</b><span>useful transitions / snapshot</span></div>
@@ -45,7 +45,13 @@ footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
   <section><h1>What actually changed</h1>
     <div class="scroll"><table>
       <thead><tr><th>When</th><th>Kind</th><th>Subject</th><th>Change</th></tr></thead>
-      <tbody><tr class="down">
+      <tbody><tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">81 → 84</td>
+    </tr>
+<tr class="down">
       <td class="nw">2026-09-02</td>
       <td class="nw"><code>test.removed</code></td>
       <td>tools/agentic/lib/timeline.test.mjs :: removing a healthy subject does retire its record</td>
@@ -398,16 +404,10 @@ footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
       <td class="nw"><code>test.removed</code></td>
       <td>tools/agentic/lib/blocks.test.mjs :: markers inside a code fence are examples, not regions</td>
       <td class="nw">pass → absent</td>
-    </tr>
-<tr class="neutral">
-      <td class="nw">2026-09-02</td>
-      <td class="nw"><code>invariant.count</code></td>
-      <td>declared</td>
-      <td class="nw">59 → 81</td>
     </tr></tbody>
     </table></div>
   </section>
 
-  <footer>3bace4b · Delete the lexer; validate the manifest in one place · generated 2026-09-02 13:41 UTC<br>
+  <footer>aa7ce38 · Stop counting a failing claim as a covered one · generated 2026-09-02 13:47 UTC<br>
   A merge that moves nothing measurable produces no entry. This measures effect, not effort.</footer>
 </div>

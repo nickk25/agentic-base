@@ -1,27 +1,38 @@
 {
-  "generatedAt": "2026-09-02T13:41:30.298Z",
+  "generatedAt": "2026-09-02T13:47:22.494Z",
   "head": {
-    "sha": "3bace4baf2fb831896f66fe5f81454b06370f02c",
-    "subject": "Delete the lexer; validate the manifest in one place",
-    "ts": "2026-09-02T13:41:30.287Z",
+    "sha": "aa7ce38dd990c3d8cf73702cd37c4a0f48f7cf14",
+    "subject": "Stop counting a failing claim as a covered one",
+    "ts": "2026-09-02T13:47:22.483Z",
     "dirty": false
   },
   "status": "green",
   "numbers": {
-    "invariantsCovered": 81,
-    "invariantsDeclared": 81,
+    "invariantsCovered": 84,
+    "invariantsDeclared": 84,
     "failingTests": 0,
     "couplingViolations": 0
   },
   "redZones": [],
   "health": {
-    "snapshots": 3,
+    "snapshots": 4,
     "improvements": 0,
     "regressions": 87,
     "openRegressions": 0,
     "usefulTransitionRate": 0
   },
   "timeline": [
+    {
+      "id": "b3cbdacf309c",
+      "ts": "2026-09-02T13:47:22.483Z",
+      "kind": "invariant.count",
+      "subject": "declared",
+      "severity": "neutral",
+      "evidence": [],
+      "from": 81,
+      "to": 84,
+      "sha": "aa7ce38dd990c3d8cf73702cd37c4a0f48f7cf14"
+    },
     {
       "id": "fefe843086a4",
       "ts": "2026-09-02T13:41:30.287Z",
@@ -669,17 +680,6 @@
       "evidence": [],
       "from": "pass",
       "to": "absent",
-      "sha": "3bace4baf2fb831896f66fe5f81454b06370f02c"
-    },
-    {
-      "id": "c3efc511e5c3",
-      "ts": "2026-09-02T13:41:30.287Z",
-      "kind": "invariant.count",
-      "subject": "declared",
-      "severity": "neutral",
-      "evidence": [],
-      "from": 59,
-      "to": 81,
       "sha": "3bace4baf2fb831896f66fe5f81454b06370f02c"
     }
   ],
