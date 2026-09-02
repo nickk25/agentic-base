@@ -29,6 +29,12 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Contracts match the code
+        run: npm run contracts:check
+
+      - name: Invariants anchored to tests
+        run: npm run invariants
+
       - name: Coupling rules
         env:
           # Two fixed SHAs. Never branch names — main moves while the pull
@@ -38,3 +44,19 @@ jobs:
           AGENTIC_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           AGENTIC_PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: npm run gate
+
+  state:
+    # Only on main: a snapshot is a measurement of what landed, not of a proposal.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run state
+      - uses: actions/upload-artifact@v4
+        with:
+          name: state
+          path: docs/state.*

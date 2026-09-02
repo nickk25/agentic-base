@@ -101,3 +101,33 @@ gap needs mutation testing, which is not here yet.
 - First version: four obligation kinds, captured patterns, plan mode.
 - Generated contract regions, pluggable generators, invariant bijection check.
 - Fence-aware scanning: `gen:` markers inside ``` blocks are examples, not regions.
+
+## State and the timeline
+
+`state snapshot` measures the repository through the probes in
+`tools/agentic/probes/` and keeps the result under `.agentic/snapshots/`.
+`state render` diffs consecutive snapshots into `docs/state.json`, and renders
+`docs/state.html` as a view of it. Agents read the JSON; the HTML is never the
+source.
+
+A timeline entry is a **state transition, not a commit**. A merge that moves
+nothing measurable produces no entry at all. That is deliberate: a log of commits
+tells you the agents were busy, and this is meant to tell you whether the
+software got better.
+
+Severity is derived, never chosen — nothing asks anyone's opinion about whether a
+change was good. Two rules carry most of the weight:
+
+- Something that appears already working is `neutral`, not `up`. Otherwise the
+  cheapest way to manufacture progress is to declare things that already pass.
+- A test that arrives already failing is `down`, however new it is.
+
+`usefulTransitionRate` is improvements divided by **snapshots**, not by entries,
+so a burst of merges that changed nothing drags it down. It is the first number
+to read: a repository can generate a great deal of activity while getting worse,
+and that combination is what this is for.
+
+Probes measure and never narrate. Line coverage, test count, commits per week and
+lines added are deliberately absent — agents inflate all four without moving
+quality, and a number that only goes up stops being read.
+- Snapshots, timeline diffing and the state page.

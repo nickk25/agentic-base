@@ -14,7 +14,9 @@
     "contracts:check": "node tools/agentic/contracts.mjs --check",
     "invariants": "node tools/agentic/invariants.mjs",
     "test": "node --test tools/agentic/**/*.test.mjs",
-    "verify": "npm run contracts:check && npm run invariants && npm test && npm run gate"
+    "verify": "npm run contracts:check && npm run invariants && npm test && npm run gate",
+    "state": "node tools/agentic/state.mjs",
+    "state:snapshot": "node tools/agentic/state.mjs snapshot"
   },
   "dependencies": {
     "yaml": "^2.8.1"

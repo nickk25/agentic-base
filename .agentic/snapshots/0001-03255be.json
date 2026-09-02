@@ -1,0 +1,50 @@
+{
+  "ts": "2026-09-02T11:31:29.027Z",
+  "sha": "03255bed40bc9731801c4c3b05967deef8efbd71",
+  "subject": "Fire the contract check when a contract itself is hand-edited",
+  "probes": {
+    "invariants": {
+      "declared": 18,
+      "covered": 18,
+      "uncovered": [],
+      "undocumented": []
+    },
+    "tests": {
+      "byName": {
+        "a block is found and its body replaced, markers untouched": "pass",
+        "markers inside a code fence are examples, not regions": "pass",
+        "a tilde fence masks just like a backtick fence": "pass",
+        "an unclosed marker is reported rather than ignored": "pass",
+        "a block with no generator is left alone, never emptied": "pass",
+        "a captured rule fans out once per module actually touched": "pass",
+        "a rule stays silent for modules the change set never touches": "pass",
+        "the capture is substituted into the requirement, per module": "pass",
+        "`added` refuses a modified file where a new one was required": "pass",
+        "a label requirement reads the labels on the pull request": "pass",
+        "plan mode never executes a command requirement": "pass",
+        "a failing command reports its own output, not just its exit code": "pass",
+        "* stops at a separator": "pass",
+        "** crosses separators": "pass",
+        "a/**/b also matches a/b": "pass",
+        "{name} captures exactly one segment": "pass",
+        "captures resolve independently per path": "pass",
+        "dots are literal, not any-character": "pass",
+        "a negation subtracts from the list": "pass",
+        "a negation wins wherever it sits in the list": "pass",
+        "substitute fills captures and leaves unknown ones alone": "pass",
+        "malformed patterns fail loudly rather than matching nothing": "pass",
+        "a snapshot that changed nothing measurable produces no entries": "pass",
+        "a test flipping either way is a transition with derived severity": "pass",
+        "a test that arrives already failing is a regression, not a neutral addition": "pass",
+        "something that appears already working is neutral, never an improvement": "pass",
+        "a regression stays open until the same subject recovers": "pass",
+        "the useful-transition rate is measured per snapshot, not per entry": "pass"
+      },
+      "failing": []
+    },
+    "coupling": {
+      "violations": []
+    },
+    "modules": {}
+  }
+}

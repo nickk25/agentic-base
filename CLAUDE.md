@@ -5,7 +5,7 @@ reads this code end to end. The rules are not documentation about the product �
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 200 lines and the cap is enforced. If something here does not
+It is capped at 240 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
 ## 0. The gates are advisory. Treat them as binding.
@@ -64,6 +64,12 @@ gates that cannot be bypassed with `--no-verify`.
 | `tools/agentic/lib/changed.mjs` | Which files a change set touches, and which it adds. |
 | `tools/agentic/lib/coupling.mjs` | The rule engine. The four obligation kinds. |
 | `tools/agentic/gate.mjs` | CLI and the error interface. |
+| `tools/agentic/lib/blocks.mjs` | Generated regions inside Markdown. Fence-aware. |
+| `tools/agentic/contracts.mjs` | Rewrites those regions; `--check` compares them against the code. |
+| `tools/agentic/invariants.mjs` | The claim ↔ test bijection. |
+| `tools/agentic/lib/timeline.mjs` | Snapshot diffing. Severity is derived, never chosen. |
+| `tools/agentic/state.mjs` | Measures, stores, renders `docs/state.json` and `docs/state.html`. |
+| `tools/agentic/probes/index.mjs` | The facts a snapshot is made of. Pluggable. |
 | `coupling.yaml` | This repository's own rules. Also the schema reference. |
 | `docs/ENGINE.md` | Observable behaviour of the engine. Kept in step by a coupling rule. |
 
@@ -75,6 +81,8 @@ gates that cannot be bypassed with `--no-verify`.
 | Change how paths match | `lib/glob.test.mjs` before `lib/glob.mjs` — the tests are the spec |
 | Change what a failure looks like | `gate.mjs`, section `reportViolations` |
 | Change which rules this repo enforces | `coupling.yaml` — protected, needs a label |
+| Add a fact to the state page | `probes/index.mjs`, then `lib/timeline.mjs` to make it a transition |
+| Change what counts as progress | `lib/timeline.mjs` — severity rules live there and nowhere else |
 | Use this in another repository | `README.md`, section "Adopting this" |
 
 ## 5. Rules of this repository
@@ -123,6 +131,19 @@ for, and it is not here yet.
   being checked while the contract still looks maintained. `test: INV-blocks-02`
 - A block whose generator is missing is left alone, never emptied. Wiping it
   would delete the only verified part of a contract. `test: INV-blocks-03`
+- A snapshot that changed nothing measurable produces no timeline entry. A log of
+  commits says the agents were busy; the timeline says whether the software
+  moved. `test: INV-timeline-01`
+- A test flipping either way is a transition, and its severity is derived, never
+  chosen. `test: INV-timeline-02`
+- A test that arrives already failing is a regression, not a neutral addition.
+  `test: INV-timeline-03`
+- Something that appears already working is neutral, never an improvement.
+  Otherwise declaring easy claims becomes the cheapest way to look productive.
+  `test: INV-timeline-04`
+- A regression stays open until the same subject recovers. `test: INV-timeline-05`
+- The useful-transition rate is measured per snapshot, not per entry, so a burst
+  of merges that changed nothing drags it down. `test: INV-timeline-06`
 
 ## 7. Commands
 
@@ -138,6 +159,8 @@ Generated from `package.json`. Do not edit by hand.
 | `npm run invariants` | `node tools/agentic/invariants.mjs` |
 | `npm run test` | `node --test tools/agentic/**/*.test.mjs` |
 | `npm run verify` | `npm run contracts:check && npm run invariants && npm test && npm run gate` |
+| `npm run state` | `node tools/agentic/state.mjs` |
+| `npm run state:snapshot` | `node tools/agentic/state.mjs snapshot` |
 <!-- /gen:commands -->
 
 ## 8. What a good pull request looks like
