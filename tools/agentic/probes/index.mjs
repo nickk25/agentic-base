@@ -17,13 +17,35 @@
 
 import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next', '.agentic'])
+const ROOT = process.cwd()
 
-function run(cmd, args) {
+// The scope a test file has to live in to be considered "a test that runs" —
+// deliberately the same directory `package.json`'s `test` script points at
+// (`node --test 'tools/agentic/**/*.test.mjs'`). We can't read that script's
+// glob programmatically without depending on package.json (out of scope for
+// this fix), so the constant below hard-mirrors it. A `*.test.mjs` file living
+// outside this tree is invisible to both this probe and to `invariants.mjs`,
+// on purpose: it is invisible to the real `npm test` too, so a tag inside it
+// must not be able to satisfy a declared invariant.
+const TEST_DIR = 'tools/agentic'
+const TEST_FILE_RE = /\.test\.mjs$/
+
+// Node's own test runner sets NODE_TEST_CONTEXT on itself; a child `node
+// --test` process that inherits it assumes it is being driven by a parent
+// test run over IPC rather than asked to report over stdio, and produces no
+// usable TAP text at all. Every probe here spawns test runs as plain,
+// standalone subprocesses — regardless of whether the process running this
+// file is itself under `node --test` (our own test suite does exactly that:
+// it runs invariants.mjs, which runs these probes, from inside `node --test`)
+// — so that variable must never be passed through.
+const { NODE_TEST_CONTEXT: _dropNodeTestContext, ...CLEAN_ENV } = process.env
+
+function run(cmd, args, opts = {}) {
   try {
-    return { ok: true, out: execFileSync(cmd, args, { encoding: 'utf8', stdio: 'pipe' }) }
+    return { ok: true, out: execFileSync(cmd, args, { encoding: 'utf8', stdio: 'pipe', env: CLEAN_ENV, ...opts }) }
   } catch (err) {
     return { ok: false, out: `${err.stdout ?? ''}${err.stderr ?? ''}` }
   }
@@ -37,6 +59,95 @@ function walk(dir, out = []) {
     else out.push(full)
   }
   return out
+}
+
+/** Every `*.test.mjs` file inside the directory the real test run covers. */
+export function discoverTestFiles(root = ROOT) {
+  try {
+    return walk(join(root, TEST_DIR)).filter((f) => TEST_FILE_RE.test(f))
+  } catch {
+    return []
+  }
+}
+
+/** Run one test file in isolation and capture its raw TAP output. */
+export function runTapForFile(root, relFile) {
+  return run('node', ['--test', '--test-reporter=tap', relFile], { cwd: root })
+}
+
+/**
+ * Parse Node's TAP output into leaf tests only, each with its true state.
+ *
+ * Node nests a `describe()` block as a subtest of its own: its close line
+ * looks exactly like a test result ("ok N - <suite name>") and is only
+ * distinguishable by a `type: 'suite'` field in the diagnostic YAML that
+ * follows it — a field only Node's own TAP output shows for suites, and
+ * that arrives *after* the suite's children (Node closes a suite once every
+ * child has run), which is why we need a two-pass-in-one-loop shape: track
+ * open contexts from the "# Subtest: <name>" comment (which precedes both
+ * suites and tests) and only decide "test vs suite" once we reach the
+ * matching result line's diagnostic block.
+ *
+ * SKIP and TODO are carried as their own states. Node reports both as a
+ * trailing TAP directive on the result line ("ok N - name # SKIP reason",
+ * "not ok N - name # TODO"); left unhandled, a naive parser both records a
+ * skipped test as a pass and leaves the directive text stuck to the name.
+ */
+export function parseTap(tapText) {
+  const lines = tapText.split('\n')
+  const stack = [] // {indent, name} — open "# Subtest:" contexts, outer to inner
+  const leaves = []
+
+  const SUBTEST_RE = /^(\s*)# Subtest: (.+)$/
+  const RESULT_RE = /^(\s*)(not ok|ok)\s+\d+\s+-\s+(.+?)\s*$/
+  const SUITE_TYPE_RE = /^\s*type:\s*'suite'\s*$/
+  const BLOCK_END_RE = /^\s*\.\.\.\s*$/
+  const DIRECTIVE_RE = /^(.*?)\s*#\s*(SKIP|TODO)\b.*$/i
+
+  for (let i = 0; i < lines.length; i++) {
+    const sm = SUBTEST_RE.exec(lines[i])
+    if (sm) {
+      stack.push({ indent: sm[1].length, name: sm[2] })
+      continue
+    }
+
+    const rm = RESULT_RE.exec(lines[i])
+    if (!rm) continue
+    const [, indent, okness, rawName] = rm
+
+    // Look ahead into this result's own diagnostic block (up to the next
+    // "..." close, or bail if another result/subtest line shows up first,
+    // meaning there was no block at all) to see whether it is a suite.
+    let isSuite = false
+    for (let j = i + 1; j < lines.length; j++) {
+      if (BLOCK_END_RE.test(lines[j])) break
+      if (RESULT_RE.test(lines[j]) || SUBTEST_RE.test(lines[j])) break
+      if (SUITE_TYPE_RE.test(lines[j])) {
+        isSuite = true
+        break
+      }
+    }
+
+    // This result line closes the context opened by the "# Subtest:" line
+    // at the same indentation — that is the name (and possible suite-hood)
+    // this line is reporting on.
+    if (stack.length && stack[stack.length - 1].indent === indent.length) stack.pop()
+
+    if (isSuite) continue // a describe() close, not a test
+
+    let name = rawName
+    let state = okness === 'ok' ? 'pass' : 'fail'
+    const dm = DIRECTIVE_RE.exec(rawName)
+    if (dm) {
+      name = dm[1]
+      state = dm[2].toLowerCase() // 'skip' | 'todo' — never counted as 'pass'
+    }
+
+    const qualifiedName = [...stack.map((s) => s.name), name].join(' > ')
+    leaves.push({ name, qualifiedName, state })
+  }
+
+  return leaves
 }
 
 /**
@@ -64,16 +175,30 @@ export const invariants = {
  *
  * Stored per name rather than as a total, because a total hides the case that
  * matters: one test flipping from pass to fail while another is added.
+ *
+ * Each test file runs in its own `node --test` process, one file at a time.
+ * Node's TAP output never groups a run of several files under a per-file
+ * header, so a single "run everything as one glob" invocation gives no way to
+ * tell which file a passing test's name came from — two files with a test of
+ * the same name silently collide into one entry. Running one file at a time
+ * removes the ambiguity at the source: we always know which file produced the
+ * output we are parsing. The key is `<repo-relative file> :: <test name>` —
+ * relative, so it is identical on every machine (an absolute path is not, and
+ * that mismatch is exactly what used to manufacture phantom `test.removed`
+ * timeline entries whenever the snapshot was taken from a different checkout
+ * or a different machine).
  */
 export const tests = {
   name: 'tests',
-  measure: () => {
-    const r = run('node', ['--test', '--test-reporter=tap', 'tools/agentic/**/*.test.mjs'])
-    /** @type {Record<string,'pass'|'fail'>} */
+  measure: (ctx) => {
+    const root = ctx?.root ?? ROOT
     const byName = {}
-    for (const line of r.out.split('\n')) {
-      const m = /^\s*(not ok|ok)\s+\d+\s+-\s+(.+?)\s*$/.exec(line)
-      if (m) byName[m[2]] = m[1] === 'ok' ? 'pass' : 'fail'
+    for (const file of discoverTestFiles(root)) {
+      const rel = relative(root, file)
+      const r = runTapForFile(root, rel)
+      for (const entry of parseTap(r.out)) {
+        byName[`${rel} :: ${entry.qualifiedName}`] = entry.state
+      }
     }
     return { byName, failing: Object.entries(byName).filter(([, v]) => v === 'fail').map(([k]) => k) }
   },

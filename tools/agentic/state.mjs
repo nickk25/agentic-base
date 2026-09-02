@@ -21,7 +21,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { builtins } from './probes/index.mjs'
-import { diff, health, openRegressions } from './lib/timeline.mjs'
+import { diff, health, openRegressions, refuseDirty } from './lib/timeline.mjs'
 
 const ROOT = process.cwd()
 const STORE = join(ROOT, '.agentic/snapshots')
@@ -47,7 +47,17 @@ const snapshots = () =>
     JSON.parse(readFileSync(join(STORE, f), 'utf8')),
   )
 
-async function takeSnapshot() {
+async function takeSnapshot(allowDirty = false) {
+  // Cleanliness is checked before anything is measured: a snapshot stamped
+  // `git rev-parse HEAD` while the working tree has uncommitted changes
+  // measures code that commit never contained (Bug 1) — the committed
+  // docs/state.json was proof, stamped with a sha older than the test files
+  // its own numbers came from. Fail fast rather than measure first and
+  // discover the lie afterwards.
+  const dirty = sh('git', ['status', '--porcelain']).length > 0
+  const refusal = refuseDirty(dirty, allowDirty)
+  if (refusal) throw new Error(refusal)
+
   const probes = await loadProbes()
   const ctx = { root: ROOT }
   const measured = {}
@@ -63,6 +73,11 @@ async function takeSnapshot() {
     ts: new Date().toISOString(),
     sha: sh('git', ['rev-parse', 'HEAD']),
     subject: sh('git', ['log', '-1', '--pretty=%s']),
+    // Explicit, not inferred: a reader must be able to tell a measurement of
+    // HEAD apart from a measurement of HEAD-plus-whatever-was-on-disk without
+    // re-deriving it from git. A measurement that cannot say what it measured
+    // is worse than none.
+    dirty,
     probes: measured,
   }
 
@@ -86,11 +101,15 @@ function build() {
   const inv = latest.probes.invariants ?? {}
   const failing = latest.probes.tests?.failing ?? []
   const violations = latest.probes.coupling?.violations ?? []
+  const dirty = latest.dirty === true
 
   return {
     generatedAt: new Date().toISOString(),
-    head: { sha: latest.sha, subject: latest.subject, ts: latest.ts },
-    status: failing.length || violations.length || open.length ? 'red' : inv.uncovered?.length ? 'amber' : 'green',
+    head: { sha: latest.sha, subject: latest.subject, ts: latest.ts, dirty },
+    // A dirty snapshot goes red regardless of its other numbers: those numbers
+    // may describe code that was never committed, and trusting them is the
+    // exact failure this whole file exists to catch.
+    status: dirty || failing.length || violations.length || open.length ? 'red' : inv.uncovered?.length ? 'amber' : 'green',
     numbers: {
       invariantsCovered: inv.covered ?? 0,
       invariantsDeclared: inv.declared ?? 0,
@@ -98,6 +117,7 @@ function build() {
       couplingViolations: violations.length,
     },
     redZones: [
+      ...(dirty ? [{ what: 'dirty snapshot', detail: 'The latest snapshot measured a working tree with uncommitted changes.' }] : []),
       ...failing.map((t) => ({ what: 'failing test', detail: t })),
       ...violations.map((v) => ({ what: 'coupling violation', detail: `${v.rule}: ${v.required}` })),
       ...(inv.uncovered ?? []).map((i) => ({ what: 'invariant with no test', detail: i })),
@@ -182,17 +202,29 @@ footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
     </table></div>
   </section>
 
-  <footer>${esc(state.head.sha.slice(0, 7))} · ${esc(state.head.subject)} · generated ${esc(state.generatedAt.slice(0, 16).replace('T', ' '))} UTC<br>
+  <footer>${esc(state.head.sha.slice(0, 7))}${state.head.dirty ? ' (dirty)' : ''} · ${esc(state.head.subject)} · generated ${esc(state.generatedAt.slice(0, 16).replace('T', ' '))} UTC<br>
   A merge that moves nothing measurable produces no entry. This measures effect, not effort.</footer>
 </div>
 `
 }
 
 async function main() {
-  const cmd = process.argv[2] ?? 'all'
+  const rest = process.argv.slice(2)
+  const cmd = rest.find((a) => !a.startsWith('--')) ?? 'all'
+  // Opt-in only, and only for local experimentation: a dirty snapshot is
+  // still recorded (marked `dirty: true`), never silently measured as clean.
+  const allowDirty = rest.includes('--allow-dirty')
+
   if (cmd === 'snapshot' || cmd === 'all') {
-    const s = await takeSnapshot()
-    console.log(`snapshot ${s.sha.slice(0, 7)} taken`)
+    let s
+    try {
+      s = await takeSnapshot(allowDirty)
+    } catch (err) {
+      console.error(err.message)
+      process.exitCode = 1
+      return
+    }
+    console.log(`snapshot ${s.sha.slice(0, 7)}${s.dirty ? ' (dirty)' : ''} taken`)
   }
   if (cmd === 'render' || cmd === 'all') {
     const state = build()

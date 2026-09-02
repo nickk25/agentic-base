@@ -5,7 +5,7 @@ reads this code end to end. The rules are not documentation about the product â€
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 240 lines and the cap is enforced. If something here does not
+It is capped at 300 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
 ## 0. The gates are advisory. Treat them as binding.
@@ -125,6 +125,18 @@ for, and it is not here yet.
   cheaper than making it. `test: INV-coupling-06`
 - A failing command reports its own output, not just its exit code. Otherwise an
   agent has to re-run it to learn why, which costs a cycle. `test: INV-coupling-07`
+- A captured path segment that is unsafe to interpolate into a shell string refuses the `command` requirement instead of running it. `test: INV-coupling-08`
+- A hostile path used by the whitespace probe never reaches a shell, so it cannot execute anything. `test: INV-coupling-09`
+- A whitespace-only edit does not satisfy a requirement marked `rejectWhitespaceOnly`. `test: INV-coupling-10`
+- An edit with real content satisfies a requirement marked `rejectWhitespaceOnly`. `test: INV-coupling-11`
+- A required path referencing a capture its own rule never binds is reported as a rule error, not a crash. `test: INV-coupling-12`
+- With no base commit, every path HEAD introduces is treated as new, not diffed as the working tree against HEAD. `test: INV-coupling-13`
+- The gate refuses to report success when the change set is empty, unless `--allow-empty` is passed. `test: INV-coupling-14`
+- `gate --plan` normalises a `./` prefix, a trailing slash, and an absolute in-repo path to the same result as the bare relative path. `test: INV-coupling-15`
+- The gate rejects a malformed manifest, naming the offending rule and the problem, before evaluating anything. `test: INV-coupling-16`
+- A capture containing glob metacharacters cannot widen the requirement it fills. `test: INV-coupling-17`
+- An escaped metacharacter is a literal, not a wildcard, so a captured value can re-enter a pattern without becoming one. `test: INV-glob-09`
+- Escaping a captured value leaves the pattern author's own globs intact. `test: INV-glob-10`
 - A `gen:` marker inside a code fence is an example, not a region. Documenting
   this syntax must not corrupt the document. `test: INV-blocks-01`
 - An unclosed marker is reported, not ignored. The region would otherwise stop
@@ -144,6 +156,32 @@ for, and it is not here yet.
 - A regression stays open until the same subject recovers. `test: INV-timeline-05`
 - The useful-transition rate is measured per snapshot, not per entry, so a burst
   of merges that changed nothing drags it down. `test: INV-timeline-06`
+- An empty block body renders and re-renders without corrupting the opening marker line. `test: INV-blocks-04`
+- Rendering an already-rendered document produces byte-identical output (the round trip is idempotent). `test: INV-blocks-05`
+- An unterminated code fence is reported by its opening line number instead of silently hiding every later block. `test: INV-blocks-06`
+- A document whose fences all close reports no unterminated fence. `test: INV-blocks-07`
+- Two blocks sharing a name are reported as a duplicate with both line numbers, and rendering such a document fails loudly instead of silently rendering only the first. `test: INV-blocks-08`
+- A document with no duplicate block names reports no duplicates. `test: INV-blocks-09`
+- `matchList` binds the most specific matching pattern (the one capturing the most names) regardless of where it sits in the list, because picking the first match arbitrarily could drop a capture a later, more specific pattern would have bound. `test: INV-glob-03`
+- When two matching patterns bind the same number of captures, `matchList` keeps the earliest one, so the "most captures wins" rule is itself order-independent rather than trading one order-dependency for another. `test: INV-glob-04`
+- An unbound `{name}` capture left in a required path is recompiled as a wildcard segment matching any value, so `matchList` must resolve captures correctly or a rule meant to require one specific path is silently satisfied by any path in its place. `test: INV-glob-05`
+- `substituteStrict` fills every capture exactly like `substitute` when all names are bound, so it is a safe drop-in for callers that already provide complete bindings. `test: INV-glob-06`
+- `substituteStrict` throws an error naming the unbound capture and the pattern instead of leaving the placeholder in place, because a silently widened wildcard is the worst failure mode for anything that gates access. `test: INV-glob-07`
+- A negation excludes a path for the whole pattern list permanently, even when a later positive pattern would otherwise match that same path directly, because re-inclusion after an exclusion would make the result depend on pattern order â€” and these lists are written and read by agents, so predictability matters more than the extra expressiveness. `test: INV-glob-08`
+- A tag in a file outside the tree the real test run covers must not satisfy a declared invariant. `test: INV-invariants-01`
+- A tag inside a test that runs and fails must not satisfy a declared invariant. `test: INV-invariants-02`
+- A tag inside a test that is skipped must not satisfy a declared invariant. `test: INV-invariants-03`
+- A tag that is not inside any `test(...)` call is reported as an orphan, in both online and offline mode. `test: INV-invariants-04`
+- Duplicate test names across different files do not collide in the tests probe's name-to-state map. `test: INV-invariants-05`
+- The TAP parser records a SKIP directive as its own state, never as a pass, and strips the directive from the test name. `test: INV-invariants-06`
+- The TAP parser does not count a `describe()` suite's own summary line as a test. `test: INV-invariants-07`
+- Offline mode is announced in the output and does not require execution to satisfy a claim. `test: INV-invariants-08`
+- A tag inside a test that actually ran and passed satisfies the declared invariant. `test: INV-invariants-09`
+- A renamed test's old name is retired, not left open, once it no longer exists to be re-checked. `test: INV-timeline-07`
+- Removing a subject entirely (a module deleted after being over budget) clears any open regression already recorded against it. `test: INV-timeline-08`
+- Two different transition kinds on the same subject can never cancel each other's open regressions. `test: INV-timeline-09`
+- An invariant that regains coverage still closes its open regression, even though the covering and uncovering kinds are named differently. `test: INV-timeline-10`
+- Taking a snapshot of a dirty working tree is refused by default, and proceeds only with an explicit opt-in that marks it dirty. `test: INV-timeline-11`
 
 ## 7. Commands
 

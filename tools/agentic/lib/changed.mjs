@@ -15,6 +15,10 @@ import { execFileSync } from 'node:child_process'
 /** @typedef {{ status: Status, path: string, from?: string }} Change */
 /** @typedef {{ base: string|null, head: string, source: 'event'|'merge-base'|'no-base' }} Range */
 
+// The hash of the empty tree. Fixed by git's object format, identical in every
+// repository — not something this repo generates, so there is nothing to compute.
+const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
+
 function git(args) {
   return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 }
@@ -50,13 +54,22 @@ export function resolveRange(opts = {}) {
  * reported as a rename and disappears from the added-files filter. What coupling
  * rules care about is whether the PATH is new, not where its bytes came from.
  *
+ * No base (see `resolveRange`) means "every path in `head` is new", so this
+ * diffs against the empty tree rather than passing `--root`: `git diff` has no
+ * such flag (that is a `git log`/`diff-tree` option), and silently ignoring it
+ * turned this into `git diff head` — the *working tree* against `head`, i.e.
+ * uncommitted local edits, not "everything HEAD introduces". On a clean tree
+ * that reports zero changes, which is the false-green this fix closes: every
+ * path in `head` must come back with status `A`, matching what `added()` and
+ * the "everything counts as new" comment above actually promise.
+ *
  * @param {Range} range
  * @returns {Change[]}
  */
 export function changedFiles(range) {
   const args = ['diff', '--no-renames', '--name-status', '-z']
   if (range.base) args.push(`${range.base}...${range.head}`)
-  else args.push('--root', range.head)
+  else args.push(EMPTY_TREE, range.head)
 
   /** @type {Change[]} */
   const changes = []

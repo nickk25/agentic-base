@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { danglingBlocks, findBlocks, render, replaceBlock } from './blocks.mjs'
+import { danglingBlocks, duplicateBlocks, findBlocks, render, replaceBlock, unterminatedFence } from './blocks.mjs'
 
 const doc = (body) => `# Title\n\n<!-- gen:demo -->\n${body}\n<!-- /gen:demo -->\n\ntail\n`
 
@@ -60,4 +60,59 @@ test('a block with no generator is left alone, never emptied', async () => {
   assert.equal(text, before)
   assert.deepEqual(unknown, ['demo'])
   assert.deepEqual(rendered, [])
+})
+
+test('an empty block body round-trips without corrupting the markers', async () => {
+  // @invariant INV-blocks-04
+  // indexOf('') returns its search start, so an empty body used to land the
+  // replacement inside the opening marker line, producing "<!-- gen:x -->new"
+  // and permanently mangling the marker on the very first render.
+  const empty = '<!-- gen:demo -->\n<!-- /gen:demo -->\n'
+  const out = replaceBlock(empty, 'demo', 'filled in')
+  assert.equal(out, '<!-- gen:demo -->\nfilled in\n<!-- /gen:demo -->\n')
+})
+
+test('rendering an already-rendered document is a no-op', async () => {
+  // @invariant INV-blocks-05
+  // `contracts` writing a file that `contracts --check` then flags as stale is
+  // the tool contradicting itself on the very next run.
+  const generators = { demo: () => 'stable output' }
+  const first = await render(doc(''), generators, {})
+  const second = await render(first.text, generators, {})
+  assert.equal(second.text, first.text)
+  assert.deepEqual(second.rendered, ['demo'])
+})
+
+test('an unterminated code fence is reported by line, not silently ignored', () => {
+  // @invariant INV-blocks-06
+  // Leaving inFence true to end of file makes every later block invisible to
+  // findBlocks and danglingBlocks alike — a check could pass green having
+  // examined nothing after the break.
+  const text = ['prose', '', '```js', "const x = 1", '', '<!-- gen:demo -->', 'body', '<!-- /gen:demo -->'].join('\n')
+  assert.equal(unterminatedFence(text), 3)
+  assert.equal(findBlocks(text).length, 0, 'the block after the broken fence must not be seen')
+})
+
+test('a closed fence reports no unterminated fence', () => {
+  // @invariant INV-blocks-07
+  assert.equal(unterminatedFence(doc('x')), null)
+})
+
+test('two blocks sharing a name are reported as a duplicate, not partially rendered', async () => {
+  // @invariant INV-blocks-08
+  // render() and replaceBlock() both resolve a block by name, so the second
+  // declaration is never reachable — it would look maintained while actually
+  // going unchecked. That has to fail loudly instead of picking a winner.
+  const text = ['<!-- gen:demo -->', 'first', '<!-- /gen:demo -->', '', '<!-- gen:demo -->', 'second', '<!-- /gen:demo -->'].join('\n')
+  const dupes = duplicateBlocks(text)
+  assert.equal(dupes.length, 1)
+  assert.equal(dupes[0].name, 'demo')
+  assert.deepEqual(dupes[0].lines, [1, 5])
+
+  await assert.rejects(() => render(text, { demo: () => 'x' }, {}))
+})
+
+test('a document with no duplicate names reports none', () => {
+  // @invariant INV-blocks-09
+  assert.deepEqual(duplicateBlocks(doc('x')), [])
 })

@@ -1,9 +1,38 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { changedFiles, resolveRange } from './changed.mjs'
 import { evaluate, planFor } from './coupling.mjs'
 
 const range = { base: null, head: 'HEAD', source: 'no-base' }
 const change = (path, status = 'M') => ({ status, path })
+
+const GATE = fileURLToPath(new URL('../gate.mjs', import.meta.url))
+// A malicious capture only proves anything against a real git history: the
+// bindings under test have to come from `matchList`, not be typed by hand,
+// or the test would just be checking that a string equals itself. Every test
+// below that needs one builds a throwaway repository under os.tmpdir() and
+// tears it down when it is done, never against fixtures committed here.
+function makeRepo() {
+  // Resolved with realpathSync: on macOS os.tmpdir() is a symlink (/var ->
+  // /private/var), and a subprocess's own process.cwd() reports the resolved
+  // path -- comparing an unresolved root against that would make an absolute
+  // path built from it look like it lives outside the repo the gate sees.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'coupling-test-')))
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' })
+  git('init', '-q', '-b', 'main')
+  git('config', 'user.email', 'test@example.com')
+  git('config', 'user.name', 'test')
+  return { root, git }
+}
+// Strip any CI-style range override from the environment this test itself
+// runs under, so a gate.mjs subprocess resolves its range from the fixture
+// repo's own history rather than accidentally inheriting the real one.
+const GATE_ENV = { ...process.env, AGENTIC_BASE_SHA: '', AGENTIC_HEAD_SHA: '', AGENTIC_PR_LABELS: '' }
 
 const moduleContract = {
   id: 'module-contract',
@@ -104,4 +133,273 @@ test('a failing command reports its own output, not just its exit code', () => {
   })
   assert.equal(violations.length, 1)
   assert.match(violations[0].detail, /the actual reason/)
+})
+
+test('a hostile capture cannot execute anything through a command requirement', () => {
+  // @invariant INV-coupling-08
+  const { root, git } = makeRepo()
+  try {
+    const marker = join(root, 'PWNED-command')
+    const hostile = 'x`touch ' + marker + '`y'
+    mkdirSync(join(root, 'src', hostile), { recursive: true })
+    writeFileSync(join(root, 'src', hostile, 'f.ts'), 'x')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'hostile module name')
+    const head = git('rev-parse', 'HEAD').trim()
+
+    const rule = {
+      id: 'per-module-check',
+      when: ['src/{module}/**'],
+      require: [{ kind: 'command', run: 'echo module {module} checked' }],
+    }
+    const violations = evaluate({
+      rules: [rule],
+      changes: [{ status: 'A', path: `src/${hostile}/f.ts` }],
+      range: { base: null, head, source: 'no-base' },
+    })
+
+    assert.equal(violations.length, 1, 'an unsafe capture must refuse the rule instead of running it')
+    assert.match(violations[0].required, /safe to run in a shell command/)
+    assert.match(violations[0].detail, /"module"/)
+    assert.equal(existsSync(marker), false, 'the injected command must never have run')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a hostile path cannot execute anything through the whitespace probe', () => {
+  // @invariant INV-coupling-09
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    // The marker is a bare name, not a path: `git diff` runs with the fixture
+    // repo as its cwd (see the chdir below), so an injected `touch` with no
+    // path of its own would land right there if it ran at all.
+    const markerName = 'PWNED-whitespace'
+    const marker = join(root, markerName)
+    const hostile = 'x`touch ' + markerName + '`y.txt'
+    writeFileSync(join(root, hostile), 'line one\n')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'add hostile file')
+    const base = git('rev-parse', 'HEAD').trim()
+
+    writeFileSync(join(root, hostile), 'line one  \n') // trailing whitespace only
+    git('add', '-A')
+    git('commit', '-q', '-m', 'whitespace-only edit')
+    const head = git('rev-parse', 'HEAD').trim()
+
+    const rule = {
+      id: 'ws-rule',
+      when: [hostile],
+      require: [{ kind: 'changed', paths: [hostile], rejectWhitespaceOnly: true }],
+    }
+    // The whitespace probe shells out to `git diff`, relative to process.cwd() --
+    // it must run against the fixture's own history, not this test's own repo.
+    process.chdir(root)
+    const violations = evaluate({
+      rules: [rule],
+      changes: [{ status: 'M', path: hostile }],
+      range: { base, head, source: 'event' },
+    })
+
+    assert.equal(violations.length, 1, 'a whitespace-only edit is still not a real change, hostile filename or not')
+    assert.equal(existsSync(marker), false, 'the injected command must never have run')
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a whitespace-only edit does not satisfy `rejectWhitespaceOnly`', () => {
+  // @invariant INV-coupling-10
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    writeFileSync(join(root, 'f.txt'), 'line one\n')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'init')
+    const base = git('rev-parse', 'HEAD').trim()
+
+    writeFileSync(join(root, 'f.txt'), 'line one   \n')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'whitespace only')
+    const head = git('rev-parse', 'HEAD').trim()
+
+    const rule = { id: 'ws', when: ['f.txt'], require: [{ kind: 'changed', paths: ['f.txt'], rejectWhitespaceOnly: true }] }
+    process.chdir(root)
+    const violations = evaluate({ rules: [rule], changes: [change('f.txt')], range: { base, head, source: 'event' } })
+    assert.equal(violations.length, 1, '--name-only lists the file regardless of -w; only a real content diff may satisfy this')
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('an edit with real content satisfies `rejectWhitespaceOnly`', () => {
+  // @invariant INV-coupling-11
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    writeFileSync(join(root, 'f.txt'), 'line one\n')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'init')
+    const base = git('rev-parse', 'HEAD').trim()
+
+    writeFileSync(join(root, 'f.txt'), 'line one\nline two\n')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'real content')
+    const head = git('rev-parse', 'HEAD').trim()
+
+    const rule = { id: 'ws', when: ['f.txt'], require: [{ kind: 'changed', paths: ['f.txt'], rejectWhitespaceOnly: true }] }
+    process.chdir(root)
+    const violations = evaluate({ rules: [rule], changes: [change('f.txt')], range: { base, head, source: 'event' } })
+    assert.equal(violations.length, 0, 'a real content change must satisfy the requirement')
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('an unbound capture in a required path is reported as a rule error, not a crash', () => {
+  // @invariant INV-coupling-12
+  const rule = {
+    id: 'typoed-capture',
+    // "mod", not "module" -- a rule-authoring typo `when` itself never binds.
+    when: ['src/{module}/**'],
+    require: [{ kind: 'changed', paths: ['src/{mod}/CLAUDE.md'] }],
+  }
+  const violations = evaluate({ rules: [rule], changes: [change('src/core/plan.ts')], range })
+  assert.equal(violations.length, 1, 'a rule referencing an unbound capture must be reported, not crash the whole gate')
+  assert.match(violations[0].required, /well-formed rule/)
+  assert.match(violations[0].detail, /unbound capture "mod"/)
+})
+
+test('with no base, every path HEAD introduces counts as new, not the working tree against HEAD', () => {
+  // @invariant INV-coupling-13
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    writeFileSync(join(root, 'a.txt'), 'a')
+    writeFileSync(join(root, 'b.txt'), 'b')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'init')
+    process.chdir(root)
+
+    // No branch by this name exists, so `git merge-base` fails and resolveRange
+    // must fall back to its no-base path -- the one this test exercises.
+    const noBase = resolveRange({ defaultBranch: 'no-such-branch' })
+    assert.equal(noBase.base, null)
+
+    const changes = changedFiles(noBase)
+    // A clean working tree would report zero changes here if this diffed the
+    // working tree against HEAD instead of the empty tree against HEAD --
+    // exactly the bug: "no base" must mean "everything in HEAD is new", not
+    // "nothing changed locally".
+    assert.equal(changes.length, 2)
+    assert.ok(changes.every((c) => c.status === 'A'))
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('gate refuses to report success when the change set is empty, and --allow-empty opts back in', () => {
+  // @invariant INV-coupling-14
+  const { root, git } = makeRepo()
+  try {
+    writeFileSync(
+      join(root, 'coupling.yaml'),
+      'version: 1\nrules:\n  - id: noop\n    when: ["never/touched.txt"]\n    require:\n      - kind: label\n        name: whatever\n',
+    )
+    git('add', '-A')
+    git('commit', '-q', '-m', 'init')
+    // On a fresh branch with a clean tree, merge-base(main, HEAD) is HEAD
+    // itself, so the change set is genuinely empty -- the exact "on main"
+    // scenario this fix targets, reproduced without any uncommitted state.
+
+    assert.throws(
+      () => execFileSync('node', [GATE], { cwd: root, encoding: 'utf8', env: GATE_ENV }),
+      (err) => {
+        assert.equal(err.status, 1, 'an empty change set must not exit 0')
+        assert.match(err.stderr, /nothing was measured/i)
+        assert.match(err.stderr, /--allow-empty/)
+        return true
+      },
+      'a gate that measured zero files must not report success',
+    )
+
+    const out = execFileSync('node', [GATE, '--allow-empty'], { cwd: root, encoding: 'utf8', env: GATE_ENV })
+    assert.match(out, /every coupling rule satisfied/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('gate --plan normalises a "./" prefix, a trailing slash, and an absolute path to the same result', () => {
+  // @invariant INV-coupling-15
+  // realpathSync: see the comment in makeRepo() -- an absolute path built
+  // from the unresolved tmpdir would not match the subprocess's own cwd.
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'coupling-test-')))
+  try {
+    writeFileSync(
+      join(root, 'coupling.yaml'),
+      'version: 1\nrules:\n  - id: spec-rule\n    when: ["docs/spec.md"]\n    require:\n      - kind: label\n        name: reviewed\n',
+    )
+    const planFor_ = (arg) =>
+      JSON.parse(execFileSync('node', [GATE, '--plan', '--json', arg], { cwd: root, encoding: 'utf8', env: GATE_ENV }))
+
+    const bare = planFor_('docs/spec.md')
+    assert.equal(bare.plan.length, 1, 'the bare relative path is the baseline: the rule must fire')
+
+    for (const arg of ['./docs/spec.md', 'docs/spec.md/', join(root, 'docs/spec.md')]) {
+      assert.deepEqual(planFor_(arg), bare, `"${arg}" must normalise to the same result as the bare relative path`)
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('gate rejects a malformed manifest before evaluating anything, naming the rule and the problem', () => {
+  // @invariant INV-coupling-16
+  const root = mkdtempSync(join(tmpdir(), 'coupling-test-'))
+  try {
+    // `when` written as a string instead of a list: `matchList` would otherwise
+    // iterate it one character at a time rather than refusing outright.
+    writeFileSync(
+      join(root, 'coupling.yaml'),
+      'version: 1\nrules:\n  - id: string-when\n    when: "src/*"\n    require:\n      - kind: changed\n        paths: ["docs/x.md"]\n',
+    )
+    assert.throws(
+      () => execFileSync('node', [GATE, '--plan', 'a.ts'], { cwd: root, encoding: 'utf8', env: GATE_ENV }),
+      (err) => {
+        assert.equal(err.status, 2, 'a malformed manifest must exit with a code distinct from a coupling violation (1)')
+        assert.match(err.stderr, /string-when/)
+        assert.match(err.stderr, /"when" must be a list/)
+        return true
+      },
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('a capture containing glob metacharacters cannot widen the rule it fills', () => {
+  // @invariant INV-coupling-17
+  // Same root cause as the injection tests above: a capture is a real path
+  // segment, so its content is attacker-controlled. Here the blast radius is a
+  // requirement that quietly matches more paths than it names, rather than code
+  // execution — but a rule that is satisfied by the wrong file is exactly the
+  // false reassurance this engine exists to prevent.
+  const rule = {
+    id: 'module-contract',
+    when: ['src/{module}/**', '!src/{module}/CLAUDE.md'],
+    require: [{ kind: 'changed', paths: ['src/{module}/CLAUDE.md'] }],
+  }
+  const violations = evaluate({
+    rules: [rule],
+    changes: [change('src/ev*l/plan.ts'), change('src/evil/CLAUDE.md')],
+    range,
+  })
+  assert.equal(violations.length, 1, "another module's contract must not satisfy this one")
+  assert.equal(violations[0].bindings.module, 'ev*l')
 })
