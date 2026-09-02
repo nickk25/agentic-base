@@ -1,25 +1,346 @@
 {
-  "generatedAt": "2026-09-02T11:31:29.049Z",
+  "generatedAt": "2026-09-02T12:46:15.798Z",
   "head": {
-    "sha": "03255bed40bc9731801c4c3b05967deef8efbd71",
-    "subject": "Fire the contract check when a contract itself is hand-edited",
-    "ts": "2026-09-02T11:31:29.027Z"
+    "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce",
+    "subject": "Close the loopholes the previous fixes opened",
+    "ts": "2026-09-02T12:46:15.789Z",
+    "dirty": false
   },
   "status": "green",
   "numbers": {
-    "invariantsCovered": 18,
-    "invariantsDeclared": 18,
+    "invariantsCovered": 59,
+    "invariantsDeclared": 59,
     "failingTests": 0,
     "couplingViolations": 0
   },
   "redZones": [],
   "health": {
-    "snapshots": 1,
+    "snapshots": 2,
     "improvements": 0,
-    "regressions": 0,
+    "regressions": 28,
     "openRegressions": 0,
     "usefulTransitionRate": 0
   },
-  "timeline": [],
+  "timeline": [
+    {
+      "id": "c50f19d07c91",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "the useful-transition rate is measured per snapshot, not per entry",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "ebba0a98f19e",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a regression stays open until the same subject recovers",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "6a981e7db3b7",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "something that appears already working is neutral, never an improvement",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "a6e7878f04bb",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a test that arrives already failing is a regression, not a neutral addition",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "0c7cf63995bf",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a test flipping either way is a transition with derived severity",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "069443b6b5e5",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a snapshot that changed nothing measurable produces no entries",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "24c807ee628b",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "malformed patterns fail loudly rather than matching nothing",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "1522ed7c0654",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "substitute fills captures and leaves unknown ones alone",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "9d985a046938",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a negation wins wherever it sits in the list",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "4c436858a4ab",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a negation subtracts from the list",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "2b81ef42a188",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "dots are literal, not any-character",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "912786e65050",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "captures resolve independently per path",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "1476925b79a3",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "{name} captures exactly one segment",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "d908ee694080",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a/**/b also matches a/b",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "f329a8c7cdf9",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "** crosses separators",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "c589ec77634a",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "* stops at a separator",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "4157a7609698",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a failing command reports its own output, not just its exit code",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "fa527a07e421",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "plan mode never executes a command requirement",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "d9cb59b40f3d",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a label requirement reads the labels on the pull request",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "aa36e2503917",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "`added` refuses a modified file where a new one was required",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "47fd1fbd8210",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "the capture is substituted into the requirement, per module",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "08de86ddf0e2",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a rule stays silent for modules the change set never touches",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "f8047c7f64ac",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a captured rule fans out once per module actually touched",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "3c3a1e65f670",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a block with no generator is left alone, never emptied",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "48b454317b6f",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "an unclosed marker is reported rather than ignored",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "36257fa03b0f",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a tilde fence masks just like a backtick fence",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "877a7923b05e",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "markers inside a code fence are examples, not regions",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "2109b5cb44d8",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "test.removed",
+      "subject": "a block is found and its body replaced, markers untouched",
+      "severity": "down",
+      "evidence": [],
+      "from": "pass",
+      "to": "absent",
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    },
+    {
+      "id": "ce712cefd339",
+      "ts": "2026-09-02T12:46:15.789Z",
+      "kind": "invariant.count",
+      "subject": "declared",
+      "severity": "neutral",
+      "evidence": [],
+      "from": 18,
+      "to": 59,
+      "sha": "83148b1ad780e19c82a731391ff41f2b6c046dce"
+    }
+  ],
   "modules": {}
 }

@@ -34,7 +34,7 @@ footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
   <div class="hero"><div class="dot"></div><p>Everything declared is holding.</p></div>
 
   <div class="nums">
-    <div class="num"><b>18/18</b><span>invariants with a test</span></div>
+    <div class="num"><b>59/59</b><span>invariants with a test</span></div>
     <div class="num"><b>0</b><span>failing tests</span></div>
     <div class="num"><b>0</b><span>open regressions</span></div>
     <div class="num"><b>0</b><span>useful transitions / snapshot</span></div>
@@ -45,10 +45,183 @@ footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
   <section><h1>What actually changed</h1>
     <div class="scroll"><table>
       <thead><tr><th>When</th><th>Kind</th><th>Subject</th><th>Change</th></tr></thead>
-      <tbody><tr><td colspan="4">No transitions recorded yet.</td></tr></tbody>
+      <tbody><tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>the useful-transition rate is measured per snapshot, not per entry</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a regression stays open until the same subject recovers</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>something that appears already working is neutral, never an improvement</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a test that arrives already failing is a regression, not a neutral addition</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a test flipping either way is a transition with derived severity</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a snapshot that changed nothing measurable produces no entries</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>malformed patterns fail loudly rather than matching nothing</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>substitute fills captures and leaves unknown ones alone</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a negation wins wherever it sits in the list</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a negation subtracts from the list</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>dots are literal, not any-character</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>captures resolve independently per path</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>{name} captures exactly one segment</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a/**/b also matches a/b</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>** crosses separators</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>* stops at a separator</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a failing command reports its own output, not just its exit code</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>plan mode never executes a command requirement</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a label requirement reads the labels on the pull request</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>`added` refuses a modified file where a new one was required</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>the capture is substituted into the requirement, per module</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a rule stays silent for modules the change set never touches</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a captured rule fans out once per module actually touched</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a block with no generator is left alone, never emptied</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>an unclosed marker is reported rather than ignored</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a tilde fence masks just like a backtick fence</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>markers inside a code fence are examples, not regions</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="down">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.removed</code></td>
+      <td>a block is found and its body replaced, markers untouched</td>
+      <td class="nw">pass → absent</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">18 → 59</td>
+    </tr></tbody>
     </table></div>
   </section>
 
-  <footer>03255be · Fire the contract check when a contract itself is hand-edited · generated 2026-09-02 11:31 UTC<br>
+  <footer>83148b1 · Close the loopholes the previous fixes opened · generated 2026-09-02 12:46 UTC<br>
   A merge that moves nothing measurable produces no entry. This measures effect, not effort.</footer>
 </div>
