@@ -147,6 +147,21 @@ the same theatre as a `changed` requirement dressed up as a gate — it sits in 
 tree looking enforced. A rule set is a set of promises, and a rule that can never
 fire is a promise that cannot be kept.
 
+## Reconciling what ran with what the source says
+
+Online mode holds two views of the world: the ids the run reported, and the ids
+a scan of the test files found. They are now reconciled, because an id present
+in one and absent from the other used to fall out of both directions and be
+reported nowhere at all — a title built from a template literal or a variable,
+or written with `it()` rather than `test()`, was simply invisible.
+
+`.skip` and `.todo` are read straight off the call, so a test that never asserts
+anything does not back a claim even in offline mode, where nothing is executed.
+
+The state probe no longer counts a declared invariant whose test *failed* as
+covered. That single line discarded the whole point of running the suite: the
+failure would have appeared on the state page as coverage.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -164,3 +179,4 @@ fire is a promise that cannot be kept.
 - **Patterns.** A directory named `evil*` substituted into a requirement used to
 - Deletion loopholes closed, snapshots persisted, duplicate tags rejected, empty-but-allowed results reported honestly.
 - Ids in test titles, shared manifest validation, blank lines no longer count as a change.
+- it() recognised, inert tests rejected, TAP views reconciled, failing claims no longer counted as covered.

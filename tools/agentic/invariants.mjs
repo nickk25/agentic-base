@@ -89,7 +89,7 @@ function collect(files, pattern) {
 // whole point — it is the convention ("put the id at the front of the title")
 // turned into an anchor a regex can find without understanding the rest of the
 // file at all.
-const TITLE_RE = new RegExp(`\\btest(?:\\.\\w+)?\\(\\s*(['"\`])(${ID})\\b`, 'g')
+const TITLE_RE = new RegExp(`\\b(?:test|it)(?:\\.(\\w+))?\\(\\s*(['"\`])(${ID})\\b`, 'g')
 
 /**
  * Every id declared at the front of a test title in `file`, structurally —
@@ -105,7 +105,16 @@ const TITLE_RE = new RegExp(`\\btest(?:\\.\\w+)?\\(\\s*(['"\`])(${ID})\\b`, 'g')
 function titleIdsIn(content) {
   const found = []
   for (const m of content.matchAll(TITLE_RE)) {
-    found.push({ id: m[2], line: content.slice(0, m.index).split('\n').length })
+    // `test.skip` and `test.todo` declare a test that never asserts anything.
+    // Online mode learns that from the run; offline mode can read it straight
+    // off the call, and leaving that free catch on the table would make the
+    // weaker mode weaker than it needs to be.
+    const modifier = m[1]
+    found.push({
+      id: m[3],
+      line: content.slice(0, m.index).split('\n').length,
+      inert: modifier === 'skip' || modifier === 'todo',
+    })
   }
   return found
 }
@@ -122,13 +131,13 @@ function main() {
   const declared = collect(contracts, new RegExp(`\`test:\\s*(${ID})\``, 'g'))
 
   // Every id found at the front of a test title, structurally.
-  const occurrences = new Map() // id -> [{file, line}]
+  const occurrences = new Map() // id -> [{file, line, inert}]
   for (const file of testFiles) {
     const rel = relative(ROOT, file)
     const content = readFileSync(file, 'utf8')
-    for (const { id, line } of titleIdsIn(content)) {
+    for (const { id, line, inert } of titleIdsIn(content)) {
       if (!occurrences.has(id)) occurrences.set(id, [])
-      occurrences.get(id).push({ file: rel, line })
+      occurrences.get(id).push({ file: rel, line, inert })
     }
   }
 
@@ -153,11 +162,19 @@ function main() {
   }
 
   const stateOf = (id) => results?.get(id) ?? 'not run'
-  const isProven = (id) => !results || stateOf(id) === 'pass'
+  const inert = (id) => (occurrences.get(id) ?? []).some((o) => o.inert)
+  const isProven = (id) => !inert(id) && (!results || stateOf(id) === 'pass')
 
   const tagged = new Set(occurrences.keys())
   const missingTest = [...declared.keys()].filter((id) => !tagged.has(id))
-  const undocumented = [...tagged].filter((id) => !declared.has(id))
+  // Both views of the world, reconciled. `occurrences` is what the source says;
+  // `results` is what actually ran. An id the run reports but the scan never saw
+  // means a title shape the regex cannot read — a template literal, a variable,
+  // a helper — and without this it would fall out of both directions and be
+  // reported nowhere at all.
+  const seenInRun = new Set(results ? results.keys() : [])
+  const unscanned = [...seenInRun].filter((id) => !tagged.has(id))
+  const undocumented = [...new Set([...tagged, ...seenInRun])].filter((id) => !declared.has(id))
   const duplicated = [...declared.entries()].filter(([, at]) => at.length > 1)
   // Two tests carrying the same id means deleting either leaves the claim
   // looking covered, so neither is really load-bearing.
@@ -172,7 +189,7 @@ function main() {
     .filter(([id]) => !isProven(id))
     .map(([id, occs]) => ({ id, occurrences: occs.map((o) => ({ ...o, state: stateOf(id) })) }))
 
-  const problems = missingTest.length + undocumented.length + duplicated.length + duplicateTags.length + unverified.length
+  const problems = missingTest.length + undocumented.length + duplicated.length + duplicateTags.length + unverified.length + unscanned.length
 
   if (json) {
     console.log(JSON.stringify({
@@ -183,6 +200,7 @@ function main() {
       undocumented,
       duplicated: duplicated.map(([id, at]) => ({ id, at })),
       duplicateTags: duplicateTags.map(([id, at]) => ({ id, at })),
+      unscanned,
       unverified,
     }, null, 2))
     process.exit(problems ? 1 : 0)
@@ -222,6 +240,11 @@ function main() {
     console.error(`${c.red}✗${c.off} ${c.bold}${id}${c.off} ${c.dim}tested but not in any contract${c.off}`)
     console.error(`  ${c.dim}tagged at${c.off}    ${at.file}:${at.line}`)
     console.error(`  ${c.dim}fix${c.off}          add the invariant to the module's contract; an unwritten rule gets deleted by the next agent`)
+    console.error('')
+  }
+  for (const id of unscanned) {
+    console.error(`${c.red}✗${c.off} ${c.bold}${id}${c.off} ${c.dim}ran, but no test title in the source declares it${c.off}`)
+    console.error(`  ${c.dim}fix${c.off}          the title is built in a way the scanner cannot read — a template literal, a variable, a helper. Write the id as a plain literal at the front of the title.`)
     console.error('')
   }
   for (const [id, at] of duplicateTags) {

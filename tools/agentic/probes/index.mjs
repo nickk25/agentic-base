@@ -89,8 +89,11 @@ export function runTapForFile(root, relFile) {
  * short-circuits to empty output instead.
  */
 export function runTapForAll(root, relFiles) {
+  // A failing suite emits a diagnostic block per failure, so the output grows
+  // fastest exactly when it matters most. Truncation would not error — it would
+  // make every id past the cut look like it never ran.
   if (!relFiles.length) return { ok: true, out: '' }
-  return run('node', ['--test', '--test-reporter=tap', ...relFiles], { cwd: root })
+  return run('node', ['--test', '--test-reporter=tap', ...relFiles], { cwd: root, maxBuffer: 64 * 1024 * 1024 })
 }
 
 /**
@@ -120,7 +123,7 @@ export function parseTap(tapText) {
   const RESULT_RE = /^(\s*)(not ok|ok)\s+\d+\s+-\s+(.+?)\s*$/
   const SUITE_TYPE_RE = /^\s*type:\s*'suite'\s*$/
   const BLOCK_END_RE = /^\s*\.\.\.\s*$/
-  const DIRECTIVE_RE = /^(.*?)\s*#\s*(SKIP|TODO)\b.*$/i
+  const DIRECTIVE_RE = /^(.*?)\s*(?<!\\)#\s*(SKIP|TODO)\b.*$/i
 
   for (let i = 0; i < lines.length; i++) {
     const sm = SUBTEST_RE.exec(lines[i])
@@ -181,7 +184,13 @@ export const invariants = {
     const r = run('node', ['tools/agentic/invariants.mjs', '--json'])
     try {
       const d = JSON.parse(r.out)
-      return { declared: d.declared, covered: d.declared - d.missingTest.length, uncovered: d.missingTest, undocumented: d.undocumented }
+      // `unverified` is a declared invariant whose test exists and did NOT pass.
+      // Counting it as covered would put the failure on the state page as a
+      // success — the online mode's entire finding, discarded by its only
+      // consumer.
+      const unverified = (d.unverified ?? []).map((u) => u.id)
+      const uncovered = [...d.missingTest, ...unverified]
+      return { declared: d.declared, covered: d.declared - uncovered.length, uncovered, undocumented: d.undocumented }
     } catch {
       return { error: 'invariant probe failed', detail: r.out.trim().slice(0, 400) }
     }

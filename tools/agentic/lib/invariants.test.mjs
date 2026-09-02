@@ -212,3 +212,69 @@ test('a test whose title carries no id is not treated as covering any invariant,
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('INV-invariants-10 an id carried by an it() test is recognised in both directions', () => {
+  // `it` is a first-class export of node:test, so a scanner that only knows
+  // `test(` leaves an entire dialect invisible — and an undeclared id there
+  // would fall out of both directions and be reported nowhere at all.
+  const root = makeFixtureRoot()
+  try {
+    write(root, 'package.json', '{"name":"f","type":"module"}')
+    write(root, 'CLAUDE.md', CLAIM(fid('10')))
+    write(
+      root,
+      'tools/agentic/lib/it.test.mjs',
+      `import assert from 'node:assert/strict'\nimport { it } from 'node:test'\n\nit('${fid('10')} covered by it', () => {\n  assert.ok(true)\n})\n`,
+    )
+    const result = runInvariants(root)
+    assert.equal(result.missingTest.includes(fid('10')), false, 'an it() title backs a claim like a test() title does')
+    assert.deepEqual(result.unverified, [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('INV-invariants-11 a skipped test does not back a claim even offline', () => {
+  // Offline mode never runs anything, but `.skip` is legible straight off the
+  // call — leaving that catch on the table would make the weaker mode weaker
+  // than it has to be.
+  const root = makeFixtureRoot()
+  try {
+    write(root, 'package.json', '{"name":"f","type":"module"}')
+    write(root, 'CLAUDE.md', CLAIM(fid('11')))
+    write(
+      root,
+      'tools/agentic/lib/skipped.test.mjs',
+      `${HEADER}test.skip('${fid('11')} never asserts anything', () => {\n  assert.ok(true)\n})\n`,
+    )
+    const result = runInvariants(root, ['--offline'])
+    assert.equal(result.mode, 'offline')
+    assert.ok(
+      result.unverified.some((u) => u.id === fid('11')),
+      'a test declared with .skip proves nothing, and that is readable without running it',
+    )
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('INV-invariants-12 a declared claim whose test fails is not reported as covered by the probe', () => {
+  // The probe is the only programmatic consumer of this check. Counting an id
+  // whose test failed as covered would put the failure on the state page as a
+  // success, discarding the whole finding one layer up.
+  const root = makeFixtureRoot()
+  try {
+    write(root, 'package.json', '{"name":"f","type":"module"}')
+    write(root, 'CLAUDE.md', CLAIM(fid('12')))
+    write(
+      root,
+      'tools/agentic/lib/failing.test.mjs',
+      `${HEADER}test('${fid('12')} asserts something untrue', () => {\n  assert.equal(1, 2)\n})\n`,
+    )
+    const result = runInvariants(root)
+    assert.ok(result.unverified.some((u) => u.id === fid('12')))
+    assert.equal(result.declared - result.missingTest.length - result.unverified.length, 0, 'nothing is genuinely covered here')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})

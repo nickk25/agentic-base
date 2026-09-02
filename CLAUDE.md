@@ -201,6 +201,9 @@ for, and it is not here yet.
 - The TAP parser records a SKIP directive as its own state, never as a pass, and strips the directive from the test name. `test: INV-invariants-06`
 - The TAP parser does not count a `describe()` suite's own summary line as a test. `test: INV-invariants-07`
 - Offline mode is announced in the output and does not require execution to satisfy a claim. `test: INV-invariants-08`
+- An id carried by an `it()` test is recognised in both directions, so an entire dialect of the test runner is not invisible. `test: INV-invariants-10`
+- A test declared with `.skip` or `.todo` does not back a claim, even offline where nothing is executed. `test: INV-invariants-11`
+- A declared claim whose test fails is not reported as covered by the state probe. `test: INV-invariants-12`
 - A tag inside a test that actually ran and passed satisfies the declared invariant. `test: INV-invariants-09`
 - A renamed test's old name is retired, not left open, once it no longer exists to be re-checked. `test: INV-timeline-07`
 - Removing a subject entirely (a module deleted after being over budget) clears any open regression already recorded against it. `test: INV-timeline-08`
