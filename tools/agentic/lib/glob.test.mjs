@@ -13,6 +13,7 @@ test('** crosses separators', () => {
 })
 
 test('a/**/b also matches a/b', () => {
+  // @invariant INV-glob-01
   // The classic off-by-one: `**` has to be allowed to match nothing at all,
   // otherwise a rule silently skips files sitting directly in the folder.
   assert.ok(match('src/**/index.ts', 'src/index.ts'))
@@ -48,6 +49,7 @@ test('substitute fills captures and leaves unknown ones alone', () => {
 })
 
 test('malformed patterns fail loudly rather than matching nothing', () => {
+  // @invariant INV-glob-02
   // A pattern that quietly matches nothing would disable a rule with no signal.
   assert.throws(() => match('src/{unterminated', 'src/a'), /unterminated capture/)
   assert.throws(() => match('src/{9bad}/x', 'src/a/x'), /invalid capture name/)

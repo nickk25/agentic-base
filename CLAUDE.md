@@ -5,7 +5,7 @@ reads this code end to end. The rules are not documentation about the product â€
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 160 lines and the cap is enforced. If something here does not
+It is capped at 200 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
 ## 0. The gates are advisory. Treat them as binding.
@@ -86,26 +86,68 @@ Generated from `coupling.yaml`. Do not edit this section by hand.
 | --- | --- | --- |
 | `engine-docs` | `tools/agentic/**` | a change in `docs/ENGINE.md` |
 | `matcher-proven` | `tools/agentic/lib/glob.mjs` | `npm test` to pass |
+| `contracts-current` | `tools/agentic/**`, `package.json`, `coupling.yaml` | `npm run contracts:check` to pass |
+| `invariants-anchored` | `tools/agentic/**`, `**/CLAUDE.md` | `npm run invariants` to pass |
 | `protected-controls` | `coupling.yaml`, `.github/workflows/**` | the `human-approved` label |
 <!-- /gen:coupling -->
 
-## 6. Commands
+## 6. Invariants of the engine
 
-| Command | What it does |
+Each bullet is anchored to a test. `npm run invariants` enforces the mapping in
+both directions: a claim with no test is a claim nobody checks, and a tagged test
+with no claim is a rule the next agent deletes without knowing it existed.
+
+This proves an invariant is covered, never that its test is any good â€” a test
+that asserts nothing satisfies it happily. That gap is what mutation testing is
+for, and it is not here yet.
+
+- `**` may match nothing, so `a/**/b` matches `a/b`. A rule that skipped files
+  sitting directly in a folder would be wrong in the direction nobody notices.
+  `test: INV-glob-01`
+- A malformed pattern throws instead of matching nothing. Silently matching
+  nothing disables its rule with no signal at all. `test: INV-glob-02`
+- A captured rule fans out once per module the change set actually touched.
+  `test: INV-coupling-01`
+- A rule stays silent for modules nothing touched. `test: INV-coupling-02`
+- The capture is substituted into the requirement, so each module is measured
+  against its own contract. `test: INV-coupling-03`
+- `added` refuses a modified file where a new one was required. `test: INV-coupling-04`
+- A `label` requirement reads the labels on the pull request. `test: INV-coupling-05`
+- Plan mode never executes a command. Asking what a change will cost must stay
+  cheaper than making it. `test: INV-coupling-06`
+- A failing command reports its own output, not just its exit code. Otherwise an
+  agent has to re-run it to learn why, which costs a cycle. `test: INV-coupling-07`
+- A `gen:` marker inside a code fence is an example, not a region. Documenting
+  this syntax must not corrupt the document. `test: INV-blocks-01`
+- An unclosed marker is reported, not ignored. The region would otherwise stop
+  being checked while the contract still looks maintained. `test: INV-blocks-02`
+- A block whose generator is missing is left alone, never emptied. Wiping it
+  would delete the only verified part of a contract. `test: INV-blocks-03`
+
+## 7. Commands
+
+Generated from `package.json`. Do not edit by hand.
+
+<!-- gen:commands -->
+| Command | Runs |
 | --- | --- |
-| `npm run gate` | Evaluate every coupling rule against the current change set |
-| `npm run gate:plan -- <paths>` | Which rules those paths would fire. Runs nothing. |
-| `npm test` | The engine's own tests |
-| `npm run gate -- --json` | The same result as data |
+| `npm run gate` | `node tools/agentic/gate.mjs` |
+| `npm run gate:plan` | `node tools/agentic/gate.mjs --plan` |
+| `npm run contracts` | `node tools/agentic/contracts.mjs` |
+| `npm run contracts:check` | `node tools/agentic/contracts.mjs --check` |
+| `npm run invariants` | `node tools/agentic/invariants.mjs` |
+| `npm run test` | `node --test tools/agentic/**/*.test.mjs` |
+| `npm run verify` | `npm run contracts:check && npm run invariants && npm test && npm run gate` |
+<!-- /gen:commands -->
 
-## 7. What a good pull request looks like
+## 8. What a good pull request looks like
 
 - One module. One reason.
 - Every rule the plan predicted is satisfied, not waived.
 - Generated sections regenerated, never hand-edited.
 - Prose only where a machine cannot check it, and as little of it as possible.
 
-## 8. Never
+## 9. Never
 
 - Silence the checker: no `--no-verify`, no disabling a rule to make a pull
   request pass. If a rule is wrong, change the rule in its own pull request and

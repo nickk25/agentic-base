@@ -54,6 +54,35 @@ rules:
         run: "npm test"
         fix: "Fix the failing case, or add one covering the behaviour you just changed."
 
+
+  # The strongest gate in this repository. Regenerates every machine-written
+  # section and compares byte for byte against what was committed. It does not
+  # ask whether somebody edited the contract; it asks whether the contract is
+  # TRUE. Nothing an agent can type satisfies this except correct content.
+  - id: contracts-current
+    why: A contract that disagrees with its code is worse than no contract, because it is trusted.
+    when:
+      - "tools/agentic/**"
+      - "package.json"
+      - "coupling.yaml"
+      - "!tools/agentic/**/*.test.mjs"
+    require:
+      - kind: command
+        run: "npm run contracts:check"
+        fix: "Run `npm run contracts` and commit the result. Never hand-edit a gen: block."
+
+  # Prose is the half of a contract that can lie. Anchoring each claim to a test
+  # id keeps the claim in English while making its existence checkable.
+  - id: invariants-anchored
+    why: An unanchored invariant is a sentence. An untested one is a sentence nobody checks.
+    when:
+      - "tools/agentic/**"
+      - "**/CLAUDE.md"
+    require:
+      - kind: command
+        run: "npm run invariants"
+        fix: "Either write the missing test and tag it `// @invariant <id>`, or remove the claim from the contract."
+
   # The controls that protect every other control. Without this, an agent can
   # simply delete the rule that is in its way.
   - id: protected-controls

@@ -47,6 +47,57 @@ cares about is whether the PATH is new.
 `--json` emits the same result as data, including the resolved range, so anything
 downstream reads structure instead of parsing a report.
 
+## Generated contract regions
+
+A contract is part machine, part prose. The machine part is fenced:
+
+```
+<!-- gen:coupling -->
+...generated...
+<!-- /gen:coupling -->
+```
+
+`contracts --check` regenerates every region in memory and compares. That is the
+only question worth asking of documentation — not "did somebody edit it" but "is
+it true" — and it is the one an agent cannot answer by typing.
+
+Markers inside a fenced code block are examples, not regions. Documentation for
+this feature has to show the syntax, and without fence awareness, writing those
+docs silently corrupts them the next time the renderer runs — which is exactly
+how it was found. Replacement splices by index rather than by pattern, so an
+example further down the file cannot be hit instead of the real region.
+
+Two failure modes are reported rather than silently repaired, because both make
+a region stop being checked without anyone noticing:
+
+- an opening marker with no close: the region is invisible to the renderer.
+- a block whose generator does not exist: left untouched, never emptied. Wiping
+  a region because a generator was renamed would delete the only true part of a
+  contract.
+
+Generators are pluggable. `tools/agentic/generators/index.mjs` ships the ones
+that need no knowledge of the language being governed — `coupling`, `commands`,
+`modules`. Anything that parses source is language-specific and belongs in the
+consuming repository as another file in that folder exporting `{ name, generate }`.
+
+## Invariants
+
+`invariants` enforces a one-to-one mapping between claims in contracts and tests:
+
+```
+contract    - A message already in the target language produces no plan. `test: INV-core-01`
+test file   // @invariant INV-core-01
+```
+
+Both directions fail. Documented with no test is a claim nobody checks; tested
+with no document is a rule the next agent deletes without knowing it existed.
+
+The limit is worth stating plainly: this proves an invariant is *covered*, never
+that its test is any good. A test that asserts nothing satisfies it. Closing that
+gap needs mutation testing, which is not here yet.
+
 ## Unreleased
 
 - First version: four obligation kinds, captured patterns, plan mode.
+- Generated contract regions, pluggable generators, invariant bijection check.
+- Fence-aware scanning: `gen:` markers inside ``` blocks are examples, not regions.
