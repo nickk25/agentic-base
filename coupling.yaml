@@ -65,6 +65,9 @@ rules:
       - "tools/agentic/**"
       - "package.json"
       - "coupling.yaml"
+      # Without this, hand-editing a gen: block inside a contract fires nothing
+      # at all — found by doing exactly that on a probe branch.
+      - "**/CLAUDE.md"
       - "!tools/agentic/**/*.test.mjs"
     require:
       - kind: command

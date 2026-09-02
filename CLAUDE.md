@@ -86,7 +86,7 @@ Generated from `coupling.yaml`. Do not edit this section by hand.
 | --- | --- | --- |
 | `engine-docs` | `tools/agentic/**` | a change in `docs/ENGINE.md` |
 | `matcher-proven` | `tools/agentic/lib/glob.mjs` | `npm test` to pass |
-| `contracts-current` | `tools/agentic/**`, `package.json`, `coupling.yaml` | `npm run contracts:check` to pass |
+| `contracts-current` | `tools/agentic/**`, `package.json`, `coupling.yaml`, `**/CLAUDE.md` | `npm run contracts:check` to pass |
 | `invariants-anchored` | `tools/agentic/**`, `**/CLAUDE.md` | `npm run invariants` to pass |
 | `protected-controls` | `coupling.yaml`, `.github/workflows/**` | the `human-approved` label |
 <!-- /gen:coupling -->
