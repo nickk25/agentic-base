@@ -101,9 +101,83 @@ test('INV-blocks-08 two blocks sharing a name are reported as a duplicate, not p
   assert.equal(dupes[0].name, 'demo')
   assert.deepEqual(dupes[0].lines, [1, 5])
 
-  await assert.rejects(() => render(text, { demo: () => 'x' }, {}))
+  await assert.rejects(
+    () => render(text, { demo: () => 'x' }, {}),
+    (err) => {
+      // What an agent needs to fix this: the name that collided, and both
+      // lines it collided on.
+      assert.match(err.message, /"demo"/)
+      assert.match(err.message, /1, 5/, 'both colliding lines must be listed together, comma-separated, not run together or dropped')
+      return true
+    },
+  )
 })
 
 test('INV-blocks-09 a document with no duplicate names reports none', () => {
   assert.deepEqual(duplicateBlocks(doc('x')), [])
+})
+
+test('INV-blocks-10 unterminatedFence recognises a real closing fence, not just the absence of one', () => {
+  // Neither existing unterminated-fence test above ever reaches a genuine
+  // closing marker: INV-blocks-06's fence never closes at all, and
+  // INV-blocks-07 has no fence in the first place. Nothing proves the
+  // closing branch actually closes anything.
+  const text = ['```js', 'const x = 1', '```', 'prose after'].join('\n')
+  assert.equal(unterminatedFence(text), null, 'a fence that actually closes must not be reported as unterminated')
+})
+
+test('INV-blocks-11 a fence closed with the wrong fence character stays open', () => {
+  const text = ['```js', 'const x = 1', '~~~', 'more code, still fenced'].join('\n')
+  assert.equal(unterminatedFence(text), 1, 'a ~~~ line must not close a ``` fence, or vice versa')
+})
+
+test('INV-blocks-12 a mismatched fence character does not end masking early either', () => {
+  // Same fact as INV-blocks-11, checked through maskFences (via findBlocks)
+  // rather than unterminatedFence: a `~~~` line inside a ``` block must not
+  // stop the mask, or a marker meant only as an example inside it would
+  // start counting as a real block.
+  const text = [
+    '```',
+    '<!-- gen:demo -->',
+    'x',
+    '<!-- /gen:demo -->',
+    '~~~',
+    '<!-- gen:demo -->',
+    'still fenced',
+    '<!-- /gen:demo -->',
+    '```',
+  ].join('\n')
+  assert.equal(findBlocks(text).length, 0, 'everything here sits inside one ``` fence; a ~~~ line must not end it early')
+})
+
+test('INV-blocks-13 findBlocks reports start/end offsets that bound the whole marker-to-marker text', () => {
+  const text = doc('body text')
+  const [block] = findBlocks(text)
+  assert.equal(text.slice(block.start, block.end), '<!-- gen:demo -->\nbody text\n<!-- /gen:demo -->')
+})
+
+test('INV-blocks-14 danglingBlocks pairs a repeated name one-to-one, not by mere presence', () => {
+  // Two opens, one close: exactly one of the two must be reported dangling.
+  // A pairing that does not consume a matched close as it goes would find
+  // the same leftover close for both opens and wrongly call neither dangling.
+  const text = ['<!-- gen:demo -->', 'a', '<!-- gen:demo -->', 'b', '<!-- /gen:demo -->'].join('\n')
+  assert.deepEqual(danglingBlocks(text), ['demo'])
+})
+
+test('INV-blocks-15 replaceBlock finds the block by name, not merely the first one in the document', () => {
+  const text = ['<!-- gen:first -->', 'A', '<!-- /gen:first -->', '', '<!-- gen:second -->', 'B', '<!-- /gen:second -->'].join('\n')
+  const out = replaceBlock(text, 'second', 'B2')
+  assert.match(out, /<!-- gen:first -->\nA\n<!-- \/gen:first -->/, 'the first block must be left untouched')
+  assert.match(out, /<!-- gen:second -->\nB2\n<!-- \/gen:second -->/, 'the named block must be the one replaced')
+})
+
+test('INV-blocks-16 replaceBlock leaves the text untouched when no block with that name exists', () => {
+  const text = doc('body')
+  assert.equal(replaceBlock(text, 'missing', 'X'), text)
+})
+
+test('INV-blocks-17 replaceBlock does not double a body that already ends with a newline', () => {
+  const out = replaceBlock(doc(''), 'demo', 'already terminated\n')
+  assert.match(out, /already terminated\n<!-- \/gen:demo -->/, 'a body that already ends in \\n must not gain a second one')
+  assert.doesNotMatch(out, /already terminated\n\n<!-- \/gen:demo -->/)
 })

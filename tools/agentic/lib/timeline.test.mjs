@@ -5,6 +5,7 @@ import { diff, health, openRegressions, refuseDirty } from './timeline.mjs'
 const snap = (sha, probes) => ({ ts: '2026-09-02T00:00:00.000Z', sha, subject: sha, probes })
 const withTests = (sha, byName) => snap(sha, { tests: { byName, failing: Object.entries(byName).filter(([, v]) => v === 'fail').map(([k]) => k) } })
 const withModules = (sha, modules) => snap(sha, { modules })
+const withCoupling = (sha, violations) => snap(sha, { coupling: { violations } })
 
 test('INV-timeline-01 a snapshot that changed nothing measurable produces no entries', () => {
   // The point of the whole file. A log of commits says the agents were busy; this
@@ -194,4 +195,49 @@ test('INV-timeline-18 a failing test that disappears is never mistaken for a ren
   assert.equal(entries[0].kind, 'test.removed')
   assert.equal(entries[0].subject, 'broken')
   assert.equal(entries[0].severity, 'down')
+})
+
+test('INV-timeline-19 a new coupling violation opens as a regression, and its disappearance closes it', () => {
+  // `before?.probes?.coupling` / `after.probes?.coupling?.violations` had no
+  // test anywhere before this one -- the whole "coupling" section of diff()
+  // ran on every real snapshot, unverified.
+  const violation = { rule: 'module-contract', bindings: { module: 'core' } }
+  const clean = withCoupling('a', [])
+  const violated = withCoupling('b', [violation])
+  const fixed = withCoupling('c', [])
+
+  const opened = diff(clean, violated)
+  assert.equal(opened.length, 1)
+  assert.equal(opened[0].kind, 'coupling.opened')
+  assert.equal(opened[0].severity, 'down')
+
+  const closed = diff(violated, fixed)
+  assert.equal(closed.length, 1)
+  assert.equal(closed[0].kind, 'coupling.closed')
+  assert.equal(closed[0].severity, 'up')
+
+  assert.equal(openRegressions([...opened, ...closed]).length, 0)
+})
+
+test('INV-timeline-20 two violations of the same rule with different captures are distinct subjects', () => {
+  const core = { rule: 'module-contract', bindings: { module: 'core' } }
+  const llm = { rule: 'module-contract', bindings: { module: 'llm' } }
+  const entries = diff(withCoupling('a', [core]), withCoupling('b', [core, llm]))
+  assert.equal(entries.length, 1, 'the pre-existing violation on core must not be reported again')
+  assert.equal(entries[0].kind, 'coupling.opened')
+  assert.match(entries[0].subject, /llm/)
+})
+
+test('INV-timeline-21 the very first snapshot reports no declared-count entry, having nothing to compare against', () => {
+  // `bInv && typeof bInv.declared === 'number' && ...` guards this: with no
+  // `before` snapshot at all, `bInv` is undefined, and reading `.declared`
+  // off it must never be attempted.
+  const first = snap('a', { invariants: { declared: 3, covered: 3, uncovered: [], undocumented: [] } })
+  assert.deepEqual(diff(null, first), [])
+})
+
+test('INV-timeline-22 an unchanged declared count between two real snapshots produces no entry', () => {
+  const before = snap('a', { invariants: { declared: 2, covered: 2, uncovered: [], undocumented: [] } })
+  const after = snap('b', { invariants: { declared: 2, covered: 2, uncovered: [], undocumented: [] } })
+  assert.deepEqual(diff(before, after), [])
 })

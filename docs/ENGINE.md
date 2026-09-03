@@ -225,6 +225,28 @@ force-pushed, since its history *is* the sequence of measurements.
 This removed a race as a side effect: the snapshot commit used to land on `main`
 while a merge was in flight, and the loser of that race lost its measurement.
 
+## The mutation floor is per file, and it ratchets
+
+The bijection proves an invariant has a test; it cannot prove the test asserts
+anything. Mutation testing is what closes that, and it runs weekly rather than on
+every pull request — a full pass is twenty minutes, and making every change wait
+for it is how a good check ends up deleted.
+
+Stryker's own threshold is a global average, which is the kind of number that
+looks like a control and is not: here `timeline.mjs` sat at 58.6%, *below* the
+break threshold, while the overall score read 76.8% and passed, because two
+strong files carried it. The floor is therefore enforced per file.
+
+A file below the floor is pinned at what it scores today rather than failing
+forever. A permanently red check cannot detect a new failure — the next
+regression lands invisibly against the red already there — so a ratchet keeps the
+gap on the report while still catching any slip. It only moves up, and the check
+says when a file has climbed past the floor and can drop its entry.
+
+One caveat worth carrying: Stryker's coverage analysis produces false "survived"
+verdicts with the generic command runner that `node --test` requires. The scores
+are a floor, not a ceiling.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -246,3 +268,4 @@ while a merge was in flight, and the loser of that race lost its measurement.
 - INV- prefix required, one suite definition, mode-only changes rejected, YAML errors named, state job serialised.
 - Renames recognised, vanity metrics deleted, one test run, one check mode.
 - main protected with no bypass; measurements moved to the state branch.
+- Per-file mutation floor with a ratchet, and tests for the floor itself.
