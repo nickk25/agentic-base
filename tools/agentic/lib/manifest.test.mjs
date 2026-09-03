@@ -257,3 +257,43 @@ test('INV-manifest-22 validateRules works directly on an already-parsed array, w
   const problems = validateRules([{ id: 'bare', when: [], require: [{ kind: 'label', name: 'reviewed' }] }])
   assert.ok(problems.some((p) => p.ruleId === 'bare' && /can never fire/.test(p.message)))
 })
+
+test('INV-manifest-23 a requirement entry that is not an object is reported by name, not a crash', () => {
+  // `req?.kind` guards this: without it, a requirement written as `null` (a
+  // stray "-" in a YAML list, or a typo'd requirement) would throw instead of
+  // reporting a problem -- exactly the crash this file's own docstring says a
+  // validation failure must never become.
+  const problems = validateRules([{ id: 'r', when: ['a'], require: [null] }])
+  assert.ok(problems.some((p) => p.ruleId === 'r' && /require\[0\].*"kind" must be one of/.test(p.message)))
+})
+
+test('INV-manifest-24 a rule entry that is not an object is reported for every check, not a crash', () => {
+  const problems = validateRules([null])
+  assert.ok(problems.some((p) => /missing "id"/.test(p.message)))
+  assert.ok(problems.some((p) => /"when" must be a list of patterns, got undefined/.test(p.message)))
+  assert.ok(problems.some((p) => /"require" must be a list of requirements, got undefined/.test(p.message)))
+})
+
+test('INV-manifest-25 an unknown "kind" names every kind it could have been, comma-separated', () => {
+  const problems = validateRules([{ id: 'bad-kind', when: ['a'], require: [{ kind: 'wizardry' }] }])
+  assert.ok(problems.some((p) => /command, added, changed, label/.test(p.message)))
+})
+
+test('INV-manifest-26 an empty YAML document is reported as declaring no rules, not a crash', () => {
+  // `parse("")` returns `null`, not `{ rules: [] }` -- `doc?.rules` is what
+  // keeps this from reading as "no rules declared" instead of throwing on
+  // `null.rules`.
+  const { rules, problems } = parseManifest('')
+  assert.deepEqual(rules, [])
+  assert.ok(problems.some((p) => p.ruleId === null && /no rules declared/.test(p.message)))
+})
+
+test('INV-manifest-27 a YAML syntax error is reported by name and position, not thrown', () => {
+  const { rules, problems } = parseManifest('rules:\n  - id: x\n    when: ["a"\n')
+  assert.deepEqual(rules, [])
+  assert.equal(problems.length, 1)
+  assert.match(problems[0].message, /could not be parsed as YAML/)
+  // The position is what lets an agent jump straight to the mistake instead
+  // of re-reading the whole file.
+  assert.match(problems[0].message, /line \d/i)
+})

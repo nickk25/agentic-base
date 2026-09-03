@@ -517,7 +517,7 @@ test('INV-coupling-22 with no base to diff against, `rejectWhitespaceOnly` treat
   assert.equal(violations.length, 0, 'no base to diff against must not be read as "nothing changed"')
 })
 
-test('INV-coupling-22b the no-base short-circuit fires before any `git diff` runs, even one that would report "no change"', () => {
+test('INV-coupling-39 the no-base short-circuit fires before any `git diff` runs, even one that would report "no change"', () => {
   // A mutant that skips the `!range.base` early return does not fail loudly:
   // `${range.base}...${range.head}` coerces a JS `null` to the literal string
   // "null", and `git diff` happily resolves that as a ref name if one exists.

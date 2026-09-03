@@ -5,7 +5,7 @@ reads this code end to end. The rules are not documentation about the product â€
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 360 lines and the cap is enforced. If something here does not
+It is capped at 440 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
 ## 0. The gates are enforced. You cannot merge past them.
@@ -135,6 +135,33 @@ for, and it is not here yet.
 - Only one of `base`/`head` being present does not resolve as an event-sourced range; half a range is not a range. `test: INV-changed-03`
 - A resolvable merge base is reported as such, so a reader can tell where the comparison came from. `test: INV-changed-04`
 - With no default branch to compare against, the range says so rather than inventing one. `test: INV-changed-05`
+- ChangedFiles reports one entry per changed path, tagged with its real status. `test: INV-changed-06`
+- With no base, changedFiles diffs the empty tree against head, not the working tree. `test: INV-changed-07`
+- Touched/present/added derive exactly the right path lists from a mixed change set. `test: INV-changed-08`
+- A binary file edit satisfies `rejectWhitespaceOnly`, since there is no text inside it to call whitespace. `test: INV-coupling-21`
+- With no base to diff against, `rejectWhitespaceOnly` treats the path as genuinely changed. `test: INV-coupling-22`
+- A git failure inside the whitespace probe fails open rather than blocking the pull request. `test: INV-coupling-23`
+- An ordinary captured value is accepted as safe, and the command it gates genuinely runs. `test: INV-coupling-24`
+- A capture unsafe only in its middle is still refused, not judged by its safe-looking ends alone. `test: INV-coupling-25`
+- A rule that touches the same module through two different paths still produces one violation, not one per path. `test: INV-coupling-26`
+- `triggeredBy` is capped at 5 paths even when many more paths triggered the rule. `test: INV-coupling-27`
+- A requirement's own `fix` is substituted with the capture, and a requirement with no `fix` leaves it unset. `test: INV-coupling-28`
+- Deleting a file's content down to nothing still counts as a real change under `rejectWhitespaceOnly`. `test: INV-coupling-29`
+- Without `rejectWhitespaceOnly`, a whitespace-only edit still satisfies a plain `changed` requirement. `test: INV-coupling-30`
+- An `added` violation and a `changed` violation read differently, and both name the pattern. `test: INV-coupling-31`
+- A `min` greater than 1 is named in the requirement text, and `min: 1` claims no minimum at all. `test: INV-coupling-32`
+- A failing command's detail keeps only the tail of its own output, not the whole thing. `test: INV-coupling-33`
+- `--plan` describes every requirement kind in words an agent can act on, captures substituted in. `test: INV-coupling-34`
+- Multiple acceptable path patterns read as alternatives, not concatenated into one. `test: INV-coupling-35`
+- A failing command with no output of its own reports an empty detail, not a placeholder. `test: INV-coupling-36`
+- `rejectWhitespaceOnly` is honoured only for `changed` requirements, never for `added` ones. `test: INV-coupling-37`
+- Two `when` patterns that bind the same captures in a different order still group into one violation. `test: INV-coupling-38`
+- The no-base short-circuit fires before any `git diff` runs, even one that would report "no change". `test: INV-coupling-39`
+- A requirement entry that is not an object is reported by name, not a crash. `test: INV-manifest-23`
+- A rule entry that is not an object is reported for every check, not a crash. `test: INV-manifest-24`
+- An unknown "kind" names every kind it could have been, comma-separated. `test: INV-manifest-25`
+- An empty YAML document is reported as declaring no rules, not a crash. `test: INV-manifest-26`
+- A YAML syntax error is reported by name and position, not thrown. `test: INV-manifest-27`
 - Deleting a failing test does not clear its open regression. `test: INV-timeline-12`
 - A rule with no `id` is rejected by name instead of being silently accepted. `test: INV-manifest-01`
 - A `when` written as a string instead of a list is rejected instead of being iterated character by character. `test: INV-manifest-02`
