@@ -39,7 +39,11 @@ did not bend to let CI write; the measurement moved.
    stop and say so rather than working around it.
 4. Regenerate what is generated, write the prose that changed.
 5. `npm run gate && npm test`. Report both results, pass or fail.
-6. Open a pull request. It auto-merges when the checks pass; nobody reviews it.
+6. Open the pull request and ask for auto-merge in the same breath:
+   `gh pr create ... && gh pr merge --auto --squash`. Auto-merge is enabled on
+   the repository but is **requested per pull request** — without that second
+   command the branch sits there green and unmerged. GitHub merges it once the
+   checks pass and deletes the branch itself. Nobody reviews it.
 
 ## 2. What this is
 

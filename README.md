@@ -62,9 +62,10 @@ git flag that no hook manager can block or detect, so the branch is the only
 place a check can actually prevent a write.
 
 `main` here is protected by a ruleset with an **empty bypass list**: no pull
-request, no merge, and no exception for the repository owner. Auto-merge is on,
-so a pull request whose checks pass merges itself — it exists for three minutes
-and nobody reads it. The pull request is not a review ritual; it is the only
+request, no merge, and no exception for the repository owner. Auto-merge is enabled, but it is requested per pull request
+(`gh pr merge --auto`), so opening one and asking for auto-merge is a single
+step in the session protocol. GitHub then merges it the moment the checks pass
+and deletes the branch — it exists for three minutes and nobody reads it. The pull request is not a review ritual; it is the only
 place a check can stand between a change and the branch.
 
 One consequence worth stating, because it shaped the design: CI cannot write to
