@@ -127,9 +127,11 @@ export function validateRules(rules) {
     }
 
     if (!Array.isArray(rule?.require)) continue
+    // `rule` is guaranteed a real object below: `Array.isArray(rule?.require)`
+    // just returned true, and that is false for every null/undefined `rule`.
     rule.require.forEach((req, i) => {
       const where = `${label}, require[${i}]`
-      const reqErr = (message) => problems.push({ ruleId: rule?.id ?? null, message: `${where}: ${message}` })
+      const reqErr = (message) => problems.push({ ruleId: rule.id ?? null, message: `${where}: ${message}` })
 
       if (!KNOWN_KINDS.has(req?.kind)) {
         reqErr(`"kind" must be one of ${[...KNOWN_KINDS].join(', ')}, got ${JSON.stringify(req?.kind)}`)

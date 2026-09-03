@@ -59,14 +59,23 @@ violation names the rule, what triggered it, what is missing and what to do.
 
 Gates run in CI on pull requests, never in local hooks. `--no-verify` is a native
 git flag that no hook manager can block or detect, so the branch is the only
-place a check can actually prevent a write. Configure a ruleset requiring the
-checks, leave its bypass list empty, and turn on auto-merge: the pull request
-exists for three minutes and nobody reads it.
+place a check can actually prevent a write.
 
-**Branch protection does not exist on private repositories on the free plan.**
-Until it is available, CI reports and nothing stops a merge — see section 0 of
-`CLAUDE.md`, which closes that gap the only way left: by instruction, and by
-requiring every session to state its results out loud.
+`main` here is protected by a ruleset with an **empty bypass list**: no pull
+request, no merge, and no exception for the repository owner. Auto-merge is on,
+so a pull request whose checks pass merges itself — it exists for three minutes
+and nobody reads it. The pull request is not a review ritual; it is the only
+place a check can stand between a change and the branch.
+
+One consequence worth stating, because it shaped the design: CI cannot write to
+`main` either. Measurements are therefore published to a separate `state` branch.
+The protection did not bend to accommodate the tooling.
+
+Branch protection does not exist on **private** repositories on the free plan.
+That is why this one is public. If you adopt this in a private repository, either
+pay for it or accept that every gate here is advisory — and if it is advisory,
+say so at the top of your root contract rather than letting the README imply
+otherwise.
 
 ## Commands
 

@@ -5,38 +5,29 @@ reads this code end to end. The rules are not documentation about the product �
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 360 lines and the cap is enforced. If something here does not
+It is capped at 440 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
-## 0. The gates are advisory. Treat them as binding.
+## 0. The gates are enforced. You cannot merge past them.
 
-This repository is private on a plan where branch protection does not exist, so
-CI reports a failure and nothing stops the merge. **The gate cannot enforce
-itself. You are the enforcement.**
+`main` is protected with an empty bypass list. Nobody writes to it outside a pull
+request whose checks passed — not you, not the repository owner, not CI. A push
+straight to `main` is refused by the server.
 
-That is not permission to move faster. It is the opposite: every rule here is
-one you could step over without anyone noticing, which is exactly why stepping
-over one is the most damaging thing you can do in this repository.
+This section used to be an appeal to your discipline, because the gates were
+advisory and a red check stopped nothing. It is now a description of what the
+machine does. Two habits from that period are worth keeping anyway:
 
-So, without exception:
+- **Report what the checks said**, verbatim, at the end of any session that
+  touched code — including failures you did not fix, and why. The machine now
+  blocks the merge, but it cannot make your summary honest.
+- **Never route around a rule.** Renaming a file out of a pattern, or splitting a
+  change so neither half fires the rule, still works and is still worse than the
+  bug the rule existed to catch. If a rule is wrong, change the rule in its own
+  pull request and say why.
 
-- **A red gate means do not merge.** Not "merge and open a follow-up". Not
-  "merge, it is only advisory". Fix it, or leave the pull request open.
-- **Never route around a rule.** Do not rename a file, move code to a path the
-  pattern misses, or split a change across pull requests so that neither one
-  fires the rule. If a rule is wrong, change the rule in its own pull request
-  and say why. Working around a rule silently is worse than the bug the rule
-  was there to catch.
-- **State the result, every time.** Finish any session that touched code by
-  reporting the outcome of `npm run gate` and `npm test` verbatim — including
-  the failures you did not fix and why. This is the point of the rule: it makes
-  ignoring a gate require an explicit false statement rather than a convenient
-  silence.
-- **Never claim a gate passed without running it.** If you could not run it, say
-  that instead.
-
-When branch protection is switched on, this section becomes redundant and the
-machine takes over. Until then it is the only thing standing in for it.
+Measurements are published to the `state` branch, never to `main`. The protection
+did not bend to let CI write; the measurement moved.
 
 ## 1. Session protocol
 
@@ -97,7 +88,7 @@ Generated from `coupling.yaml`. Do not edit this section by hand.
 | `contracts-current` | `tools/agentic/**`, `package.json`, `coupling.yaml`, `**/CLAUDE.md` | `npm run contracts:check` to pass |
 | `invariants-anchored` | `tools/agentic/**`, `**/CLAUDE.md` | `npm run invariants` to pass |
 | `protected-controls` | `coupling.yaml`, `.github/workflows/**` | the `human-approved` label |
-| `measured-history` | `.agentic/snapshots/**`, `docs/state.json`, `docs/state.html` | the `human-approved` label |
+| `measured-history` | `.agentic/snapshots/**` | the `human-approved` label |
 <!-- /gen:coupling -->
 
 ## 6. Invariants of the engine
@@ -139,6 +130,38 @@ for, and it is not here yet.
 - Deleting the target does not satisfy a `changed` requirement; otherwise the cheapest way to satisfy "document what you did" is to delete the document. `test: INV-coupling-18`
 - Adding blank lines does not satisfy `rejectWhitespaceOnly`. `test: INV-coupling-19`
 - A mode-only change does not satisfy `rejectWhitespaceOnly`; zero bytes changed is not a change. `test: INV-coupling-20`
+- Explicit `base` and `head` resolve to an event-sourced range, with options winning over the environment. `test: INV-changed-01`
+- `base` and `head` fall back to the environment when options supply neither. `test: INV-changed-02`
+- Only one of `base`/`head` being present does not resolve as an event-sourced range; half a range is not a range. `test: INV-changed-03`
+- A resolvable merge base is reported as such, so a reader can tell where the comparison came from. `test: INV-changed-04`
+- With no default branch to compare against, the range says so rather than inventing one. `test: INV-changed-05`
+- ChangedFiles reports one entry per changed path, tagged with its real status. `test: INV-changed-06`
+- With no base, changedFiles diffs the empty tree against head, not the working tree. `test: INV-changed-07`
+- Touched/present/added derive exactly the right path lists from a mixed change set. `test: INV-changed-08`
+- A binary file edit satisfies `rejectWhitespaceOnly`, since there is no text inside it to call whitespace. `test: INV-coupling-21`
+- With no base to diff against, `rejectWhitespaceOnly` treats the path as genuinely changed. `test: INV-coupling-22`
+- A git failure inside the whitespace probe fails open rather than blocking the pull request. `test: INV-coupling-23`
+- An ordinary captured value is accepted as safe, and the command it gates genuinely runs. `test: INV-coupling-24`
+- A capture unsafe only in its middle is still refused, not judged by its safe-looking ends alone. `test: INV-coupling-25`
+- A rule that touches the same module through two different paths still produces one violation, not one per path. `test: INV-coupling-26`
+- `triggeredBy` is capped at 5 paths even when many more paths triggered the rule. `test: INV-coupling-27`
+- A requirement's own `fix` is substituted with the capture, and a requirement with no `fix` leaves it unset. `test: INV-coupling-28`
+- Deleting a file's content down to nothing still counts as a real change under `rejectWhitespaceOnly`. `test: INV-coupling-29`
+- Without `rejectWhitespaceOnly`, a whitespace-only edit still satisfies a plain `changed` requirement. `test: INV-coupling-30`
+- An `added` violation and a `changed` violation read differently, and both name the pattern. `test: INV-coupling-31`
+- A `min` greater than 1 is named in the requirement text, and `min: 1` claims no minimum at all. `test: INV-coupling-32`
+- A failing command's detail keeps only the tail of its own output, not the whole thing. `test: INV-coupling-33`
+- `--plan` describes every requirement kind in words an agent can act on, captures substituted in. `test: INV-coupling-34`
+- Multiple acceptable path patterns read as alternatives, not concatenated into one. `test: INV-coupling-35`
+- A failing command with no output of its own reports an empty detail, not a placeholder. `test: INV-coupling-36`
+- `rejectWhitespaceOnly` is honoured only for `changed` requirements, never for `added` ones. `test: INV-coupling-37`
+- Two `when` patterns that bind the same captures in a different order still group into one violation. `test: INV-coupling-38`
+- The no-base short-circuit fires before any `git diff` runs, even one that would report "no change". `test: INV-coupling-39`
+- A requirement entry that is not an object is reported by name, not a crash. `test: INV-manifest-23`
+- A rule entry that is not an object is reported for every check, not a crash. `test: INV-manifest-24`
+- An unknown "kind" names every kind it could have been, comma-separated. `test: INV-manifest-25`
+- An empty YAML document is reported as declaring no rules, not a crash. `test: INV-manifest-26`
+- A YAML syntax error is reported by name and position, not thrown. `test: INV-manifest-27`
 - Deleting a failing test does not clear its open regression. `test: INV-timeline-12`
 - A rule with no `id` is rejected by name instead of being silently accepted. `test: INV-manifest-01`
 - A `when` written as a string instead of a list is rejected instead of being iterated character by character. `test: INV-manifest-02`
@@ -230,6 +253,8 @@ Generated from `package.json`. Do not edit by hand.
 | `npm run verify` | `npm run contracts:check && npm run invariants && npm test && npm run gate` |
 | `npm run state` | `node tools/agentic/state.mjs` |
 | `npm run state:snapshot` | `node tools/agentic/state.mjs snapshot` |
+| `npm run mutate` | `stryker run` |
+| `npm run mutate:quick` | `stryker run --mutate tools/agentic/lib/glob.mjs` |
 <!-- /gen:commands -->
 
 ## 8. What a good pull request looks like

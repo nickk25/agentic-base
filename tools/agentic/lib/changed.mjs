@@ -11,8 +11,8 @@
 
 import { execFileSync } from 'node:child_process'
 
-/** @typedef {'A'|'C'|'D'|'M'|'R'|'T'} Status */
-/** @typedef {{ status: Status, path: string, from?: string }} Change */
+/** @typedef {'A'|'D'|'M'|'T'} Status */
+/** @typedef {{ status: Status, path: string }} Change */
 /** @typedef {{ base: string|null, head: string, source: 'event'|'merge-base'|'no-base' }} Range */
 
 // The hash of the empty tree. Fixed by git's object format, identical in every
@@ -20,6 +20,10 @@ import { execFileSync } from 'node:child_process'
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 function git(args) {
+  // 64 MiB, generously sized for a pull request's worth of `--name-status`
+  // output. Left untested against its exact arithmetic: proving a particular
+  // multiple wrong would mean committing a diff of that size to a throwaway
+  // repository inside a test, which is a worse trade than the coverage buys.
   return execFileSync('git', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
 }
 
@@ -75,14 +79,15 @@ export function changedFiles(range) {
   const changes = []
   const fields = git(args).split('\0').filter(Boolean)
 
+  // `R`/`C` (rename/copy) statuses, and the second path that comes with them,
+  // are impossible here: `--no-renames` is always passed above and copy
+  // detection is never requested (that needs its own `-C`/`--find-copies`
+  // flag), so every status this call can produce carries exactly one path.
+  // A branch to consume a second path that can never arrive is not a safety
+  // net, it is untested code pretending to be one.
   for (let i = 0; i < fields.length; i++) {
     const status = /** @type {Status} */ (fields[i][0])
-    if (status === 'R' || status === 'C') {
-      // Should not appear with --no-renames, but consume both paths if it does.
-      changes.push({ status, from: fields[++i], path: fields[++i] })
-    } else {
-      changes.push({ status, path: fields[++i] })
-    }
+    changes.push({ status, path: fields[++i] })
   }
   return changes
 }

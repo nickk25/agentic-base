@@ -215,6 +215,16 @@ Manifest problems have no severity tier either. There was one level, and every
 consumer filtered for it — a warning that never blocks is the same theatre as a
 `changed` requirement presented as a gate.
 
+## Where measurements live
+
+`main` is protected with an empty bypass list, which means CI cannot write to it
+any more than an agent can. Snapshots and the rendered page are published to a
+`state` branch instead, rebuilt from the previous ones on every merge and
+force-pushed, since its history *is* the sequence of measurements.
+
+This removed a race as a side effect: the snapshot commit used to land on `main`
+while a merge was in flight, and the loser of that race lost its measurement.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -235,3 +245,4 @@ consumer filtered for it — a warning that never blocks is the same theatre as 
 - it() recognised, inert tests rejected, TAP views reconciled, failing claims no longer counted as covered.
 - INV- prefix required, one suite definition, mode-only changes rejected, YAML errors named, state job serialised.
 - Renames recognised, vanity metrics deleted, one test run, one check mode.
+- main protected with no bypass; measurements moved to the state branch.

@@ -132,14 +132,22 @@ function changedBeyondWhitespace(range, path) {
     // A mode-only change (chmod +x) still prints a row — "0 0 path" — so the
     // presence of output means the file was mentioned, not that anything in it
     // moved. Read the counts.
+    //
+    // No `.trim()` / `.filter(Boolean)` here: they used to guard against a
+    // leading/trailing blank line, but `Number('') + Number(undefined)` is
+    // `NaN`, and `NaN > 0` is already `false` — a blank row reads as "no
+    // change" on its own, for free. Removed because dead weight is still
+    // weight, not because it was wrong.
     return out
-      .trim()
       .split('\n')
-      .filter(Boolean)
       .some((row) => {
         const [addedLines, removedLines] = row.split('\t')
         // A binary file reports "-\t-"; treat that as a real change, since we
-        // cannot see inside it to argue otherwise.
+        // cannot see inside it to argue otherwise. Written as an `||` over
+        // both columns rather than checking just one: `git --numstat` has
+        // always emitted the pair together, so no test can force one side to
+        // '-' without the other, but the `||` is what stays correct the day
+        // that stops being true, and an `&&` here would fail silently instead.
         if (addedLines === '-' || removedLines === '-') return true
         return Number(addedLines) + Number(removedLines) > 0
       })
@@ -204,6 +212,11 @@ export function evaluate({ rules, changes, range, labels = [], plan = false }) {
 
           const run = substitute(req.run, bindings)
           try {
+            // `stdio: 'pipe'` is execSync's own default when capturing output,
+            // and `encoding: 'utf8'` is redundant with the explicit
+            // `.toString()` calls below that decode the buffer regardless —
+            // both are written out for a reader, not because a test could ever
+            // observe their absence.
             execSync(run, { stdio: 'pipe', encoding: 'utf8' })
           } catch (err) {
             violations.push({
