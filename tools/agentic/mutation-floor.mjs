@@ -55,9 +55,9 @@ const FLOOR = 65
  * FLOOR — the check tells you when.
  */
 const RATCHET = {
-  // Measurement, not enforcement, and the pass that fixed the rule engine and
-  // the change detector deliberately spent its budget there instead.
-  'timeline.mjs': 58.6,
+  // Empty, and that is the goal state: every mutated file clears FLOOR on its
+  // own. An entry here is a temporary pin for a file that does not, so it can
+  // still be caught regressing while the gap stays visible.
 }
 
 // Mutants Stryker itself never scores (a mutant it decided not to generate,
@@ -102,14 +102,27 @@ if (scored.length === 0) {
   process.exit(2)
 }
 
-/** The bar a file has to clear: the floor, or its own ratchet if it has one. */
-const barFor = (path) => RATCHET[path.split('/').pop()] ?? FLOOR
+/**
+ * Which files fail, and which have outgrown their pin.
+ *
+ * Exported and pure so the mechanism can be tested without depending on what
+ * RATCHET happens to hold today — the entries are data that changes as files
+ * improve, and a test that breaks when the data is correct is a test that
+ * teaches people to delete tests.
+ *
+ * @param {{path: string, score: number}[]} scored
+ * @param {Record<string, number>} ratchet
+ * @param {number} floor
+ */
+export function judge(scored, ratchet = RATCHET, floor = FLOOR) {
+  const barFor = (path) => ratchet[path.split('/').pop()] ?? floor
+  return {
+    failing: scored.filter((f) => f.score < barFor(f.path)).sort((a, b) => a.score - b.score),
+    graduated: scored.filter((f) => ratchet[f.path.split('/').pop()] !== undefined && f.score >= floor),
+  }
+}
 
-const failing = scored.filter((f) => f.score < barFor(f.path)).sort((a, b) => a.score - b.score)
-// A ratcheted file that has climbed past the floor no longer needs its entry,
-// and a stale ratchet quietly lowers the bar for a file that could hold a
-// higher one. Report it rather than leaving it to rot.
-const graduated = scored.filter((f) => RATCHET[f.path.split('/').pop()] !== undefined && f.score >= FLOOR)
+const { failing, graduated } = judge(scored)
 
 if (failing.length > 0) {
   console.error(`Per-file mutation floor not met by ${failing.length} of ${scored.length} file(s):`)
