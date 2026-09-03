@@ -146,6 +146,7 @@ for, and it is not here yet.
 - A report naming no scoreable mutant is an error, not a pass. `test: INV-floor-05`
 - A missing report is an error that says to run the mutator first. `test: INV-floor-06`
 - An empty ratchet holds every file to the floor itself; an entry is a temporary pin, not the normal way to pass. `test: INV-floor-07`
+- Importing the module does not run the tool, so borrowing one function never becomes running the whole thing. `test: INV-floor-08`
 - UnterminatedFence recognises a real closing fence, not just the absence of one. `test: INV-blocks-10`
 - A fence closed with the wrong fence character stays open. `test: INV-blocks-11`
 - A mismatched fence character does not end masking early either. `test: INV-blocks-12`

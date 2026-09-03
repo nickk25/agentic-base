@@ -92,3 +92,13 @@ test('INV-floor-06 a missing report is an error that says to run the mutator fir
   assert.equal(code, 2)
   assert.match(out, /npm run mutate/)
 })
+
+test('INV-floor-08 importing the module does not run the tool', () => {
+  // These tests import it for `judge`. A module that runs itself on import turns
+  // "borrow one function" into "run the whole tool", and it then fails wherever
+  // the report is absent — which is everywhere except a machine that has just
+  // run the mutator. It passed locally and failed in CI for exactly that reason.
+  assert.equal(typeof judge, 'function', 'the import completed at all')
+  const { failing } = judge([{ path: 'lib/x.mjs', score: 10 }], {}, 65)
+  assert.equal(failing.length, 1, 'and the borrowed function works on its own')
+})

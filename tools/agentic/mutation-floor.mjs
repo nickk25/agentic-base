@@ -36,6 +36,8 @@
  * back under it.
  */
 import { readFileSync } from 'node:fs'
+import { argv } from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 const REPORT_PATH = process.argv[2] ?? 'reports/mutation/mutation.json'
 const FLOOR = 65
@@ -83,25 +85,6 @@ function scoreOf(mutants) {
   return valid === 0 ? null : Math.round((killed / valid) * 10000) / 100
 }
 
-let report
-try {
-  report = JSON.parse(readFileSync(REPORT_PATH, 'utf8'))
-} catch (err) {
-  console.error(`mutation-floor: could not read or parse ${REPORT_PATH}: ${err.message}`)
-  console.error('Run `npm run mutate` first -- this script only reads its report, it does not run Stryker itself.')
-  process.exit(2)
-}
-
-const files = report.files ?? {}
-const scored = Object.entries(files)
-  .map(([path, file]) => ({ path, score: scoreOf(file.mutants ?? []) }))
-  .filter((f) => f.score !== null)
-
-if (scored.length === 0) {
-  console.error(`mutation-floor: ${REPORT_PATH} named no file with a scoreable mutant -- nothing was measured`)
-  process.exit(2)
-}
-
 /**
  * Which files fail, and which have outgrown their pin.
  *
@@ -122,22 +105,47 @@ export function judge(scored, ratchet = RATCHET, floor = FLOOR) {
   }
 }
 
-const { failing, graduated } = judge(scored)
+// Only when run as a command. The tests import this module for `judge`, and a
+// module that runs itself on import turns "borrow one function" into "run the
+// whole tool" — which then fails everywhere the report is absent, meaning
+// everywhere except a machine that has just run the mutator.
+if (import.meta.url === pathToFileURL(argv[1] ?? '').href) {
+  let report
+  try {
+    report = JSON.parse(readFileSync(REPORT_PATH, 'utf8'))
+  } catch (err) {
+    console.error(`mutation-floor: could not read or parse ${REPORT_PATH}: ${err.message}`)
+    console.error('Run `npm run mutate` first -- this script only reads its report, it does not run Stryker itself.')
+    process.exit(2)
+  }
 
-if (failing.length > 0) {
-  console.error(`Per-file mutation floor not met by ${failing.length} of ${scored.length} file(s):`)
-  for (const f of failing) console.error(`  ${f.score.toFixed(2)}%  ${f.path}`)
-  console.error('')
-  console.error('A weak file no longer gets to hide behind a strong one\'s average. Add tests for the survivors')
-  console.error(`reports/mutation/mutation.html`)
-  console.error('names, or delete the code they reveal as dead, until the file above clears the floor.')
-  process.exit(1)
-}
+  const files = report.files ?? {}
+  const scored = Object.entries(files)
+    .map(([path, file]) => ({ path, score: scoreOf(file.mutants ?? []) }))
+    .filter((f) => f.score !== null)
 
-for (const f of graduated) {
-  console.log(`${f.path} now scores ${f.score.toFixed(1)}%, above the ${FLOOR}% floor — drop its RATCHET entry.`)
-}
-console.log(`Per-file mutation floor (${FLOOR}%, ratcheted: ${Object.keys(RATCHET).join(', ') || 'none'}): all ${scored.length} mutated file(s) clear their bar.`)
-for (const f of scored.sort((a, b) => a.score - b.score).slice(0, 3)) {
-  console.log(`  ${f.score.toFixed(2)}%  ${f.path}`)
+  if (scored.length === 0) {
+    console.error(`mutation-floor: ${REPORT_PATH} named no file with a scoreable mutant -- nothing was measured`)
+    process.exit(2)
+  }
+
+  const { failing, graduated } = judge(scored)
+
+  if (failing.length > 0) {
+    console.error(`Per-file mutation floor not met by ${failing.length} of ${scored.length} file(s):`)
+    for (const f of failing) console.error(`  ${f.score.toFixed(2)}%  ${f.path}`)
+    console.error('')
+    console.error('A weak file no longer gets to hide behind a strong one\'s average. Add tests for the survivors')
+    console.error(`reports/mutation/mutation.html`)
+    console.error('names, or delete the code they reveal as dead, until the file above clears the floor.')
+    process.exit(1)
+  }
+
+  for (const f of graduated) {
+    console.log(`${f.path} now scores ${f.score.toFixed(1)}%, above the ${FLOOR}% floor — drop its RATCHET entry.`)
+  }
+  console.log(`Per-file mutation floor (${FLOOR}%, ratcheted: ${Object.keys(RATCHET).join(', ') || 'none'}): all ${scored.length} mutated file(s) clear their bar.`)
+  for (const f of scored.sort((a, b) => a.score - b.score).slice(0, 3)) {
+    console.log(`  ${f.score.toFixed(2)}%  ${f.path}`)
+  }
 }
