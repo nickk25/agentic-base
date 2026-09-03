@@ -247,6 +247,18 @@ One caveat worth carrying: Stryker's coverage analysis produces false "survived"
 verdicts with the generic command runner that `node --test` requires. The scores
 are a floor, not a ceiling.
 
+## The floor script is a module and a command
+
+`mutation-floor.mjs` exports `judge` for its tests and runs the tool only when it
+is the entry point. Importing it used to run everything — read the report, print,
+exit — which works on a machine that has just run the mutator and nowhere else.
+The tests imported it, so the file loaded locally and failed to load in CI.
+
+The ratchet is empty, and that is its goal state. An entry pins a file that does
+not yet meet the floor so a regression is still caught while the gap stays
+visible; leaving one in place after the file improves does the opposite, holding
+it to a bar *below* what everyone else clears.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -269,3 +281,4 @@ are a floor, not a ceiling.
 - Renames recognised, vanity metrics deleted, one test run, one check mode.
 - main protected with no bypass; measurements moved to the state branch.
 - Per-file mutation floor with a ratchet, and tests for the floor itself.
+- Floor script importable without side effects; ratchet emptied.
