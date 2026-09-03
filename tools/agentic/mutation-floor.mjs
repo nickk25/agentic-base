@@ -36,6 +36,8 @@
  * back under it.
  */
 import { readFileSync } from 'node:fs'
+import { argv } from 'node:process'
+import { pathToFileURL } from 'node:url'
 
 const REPORT_PATH = process.argv[2] ?? 'reports/mutation/mutation.json'
 const FLOOR = 65
@@ -55,9 +57,9 @@ const FLOOR = 65
  * FLOOR — the check tells you when.
  */
 const RATCHET = {
-  // Measurement, not enforcement, and the pass that fixed the rule engine and
-  // the change detector deliberately spent its budget there instead.
-  'timeline.mjs': 58.6,
+  // Empty, and that is the goal state: every mutated file clears FLOOR on its
+  // own. An entry here is a temporary pin for a file that does not, so it can
+  // still be caught regressing while the gap stays visible.
 }
 
 // Mutants Stryker itself never scores (a mutant it decided not to generate,
@@ -83,48 +85,67 @@ function scoreOf(mutants) {
   return valid === 0 ? null : Math.round((killed / valid) * 10000) / 100
 }
 
-let report
-try {
-  report = JSON.parse(readFileSync(REPORT_PATH, 'utf8'))
-} catch (err) {
-  console.error(`mutation-floor: could not read or parse ${REPORT_PATH}: ${err.message}`)
-  console.error('Run `npm run mutate` first -- this script only reads its report, it does not run Stryker itself.')
-  process.exit(2)
+/**
+ * Which files fail, and which have outgrown their pin.
+ *
+ * Exported and pure so the mechanism can be tested without depending on what
+ * RATCHET happens to hold today — the entries are data that changes as files
+ * improve, and a test that breaks when the data is correct is a test that
+ * teaches people to delete tests.
+ *
+ * @param {{path: string, score: number}[]} scored
+ * @param {Record<string, number>} ratchet
+ * @param {number} floor
+ */
+export function judge(scored, ratchet = RATCHET, floor = FLOOR) {
+  const barFor = (path) => ratchet[path.split('/').pop()] ?? floor
+  return {
+    failing: scored.filter((f) => f.score < barFor(f.path)).sort((a, b) => a.score - b.score),
+    graduated: scored.filter((f) => ratchet[f.path.split('/').pop()] !== undefined && f.score >= floor),
+  }
 }
 
-const files = report.files ?? {}
-const scored = Object.entries(files)
-  .map(([path, file]) => ({ path, score: scoreOf(file.mutants ?? []) }))
-  .filter((f) => f.score !== null)
+// Only when run as a command. The tests import this module for `judge`, and a
+// module that runs itself on import turns "borrow one function" into "run the
+// whole tool" — which then fails everywhere the report is absent, meaning
+// everywhere except a machine that has just run the mutator.
+if (import.meta.url === pathToFileURL(argv[1] ?? '').href) {
+  let report
+  try {
+    report = JSON.parse(readFileSync(REPORT_PATH, 'utf8'))
+  } catch (err) {
+    console.error(`mutation-floor: could not read or parse ${REPORT_PATH}: ${err.message}`)
+    console.error('Run `npm run mutate` first -- this script only reads its report, it does not run Stryker itself.')
+    process.exit(2)
+  }
 
-if (scored.length === 0) {
-  console.error(`mutation-floor: ${REPORT_PATH} named no file with a scoreable mutant -- nothing was measured`)
-  process.exit(2)
-}
+  const files = report.files ?? {}
+  const scored = Object.entries(files)
+    .map(([path, file]) => ({ path, score: scoreOf(file.mutants ?? []) }))
+    .filter((f) => f.score !== null)
 
-/** The bar a file has to clear: the floor, or its own ratchet if it has one. */
-const barFor = (path) => RATCHET[path.split('/').pop()] ?? FLOOR
+  if (scored.length === 0) {
+    console.error(`mutation-floor: ${REPORT_PATH} named no file with a scoreable mutant -- nothing was measured`)
+    process.exit(2)
+  }
 
-const failing = scored.filter((f) => f.score < barFor(f.path)).sort((a, b) => a.score - b.score)
-// A ratcheted file that has climbed past the floor no longer needs its entry,
-// and a stale ratchet quietly lowers the bar for a file that could hold a
-// higher one. Report it rather than leaving it to rot.
-const graduated = scored.filter((f) => RATCHET[f.path.split('/').pop()] !== undefined && f.score >= FLOOR)
+  const { failing, graduated } = judge(scored)
 
-if (failing.length > 0) {
-  console.error(`Per-file mutation floor not met by ${failing.length} of ${scored.length} file(s):`)
-  for (const f of failing) console.error(`  ${f.score.toFixed(2)}%  ${f.path}`)
-  console.error('')
-  console.error('A weak file no longer gets to hide behind a strong one\'s average. Add tests for the survivors')
-  console.error(`reports/mutation/mutation.html`)
-  console.error('names, or delete the code they reveal as dead, until the file above clears the floor.')
-  process.exit(1)
-}
+  if (failing.length > 0) {
+    console.error(`Per-file mutation floor not met by ${failing.length} of ${scored.length} file(s):`)
+    for (const f of failing) console.error(`  ${f.score.toFixed(2)}%  ${f.path}`)
+    console.error('')
+    console.error('A weak file no longer gets to hide behind a strong one\'s average. Add tests for the survivors')
+    console.error(`reports/mutation/mutation.html`)
+    console.error('names, or delete the code they reveal as dead, until the file above clears the floor.')
+    process.exit(1)
+  }
 
-for (const f of graduated) {
-  console.log(`${f.path} now scores ${f.score.toFixed(1)}%, above the ${FLOOR}% floor — drop its RATCHET entry.`)
-}
-console.log(`Per-file mutation floor (${FLOOR}%, ratcheted: ${Object.keys(RATCHET).join(', ') || 'none'}): all ${scored.length} mutated file(s) clear their bar.`)
-for (const f of scored.sort((a, b) => a.score - b.score).slice(0, 3)) {
-  console.log(`  ${f.score.toFixed(2)}%  ${f.path}`)
+  for (const f of graduated) {
+    console.log(`${f.path} now scores ${f.score.toFixed(1)}%, above the ${FLOOR}% floor — drop its RATCHET entry.`)
+  }
+  console.log(`Per-file mutation floor (${FLOOR}%, ratcheted: ${Object.keys(RATCHET).join(', ') || 'none'}): all ${scored.length} mutated file(s) clear their bar.`)
+  for (const f of scored.sort((a, b) => a.score - b.score).slice(0, 3)) {
+    console.log(`  ${f.score.toFixed(2)}%  ${f.path}`)
+  }
 }

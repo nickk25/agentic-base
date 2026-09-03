@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { judge } from '../mutation-floor.mjs'
 
 const SCRIPT = fileURLToPath(new URL('../mutation-floor.mjs', import.meta.url))
 
@@ -49,38 +50,30 @@ test('INV-floor-01 a file below the floor fails the run, however good the averag
 
 test('INV-floor-02 a ratcheted file sitting exactly on its bar passes', () => {
   // 586/1000 is 58.599999999999994 in binary floating point, so an unrounded
-  // comparison fails a file by an error invisible in the report itself.
-  const r = report({ 'timeline.mjs': [586, 1000] })
-  try {
-    assert.equal(run(r.path).code, 0)
-  } finally {
-    r.cleanup()
-  }
+  // comparison would fail a file by an error invisible in the report itself.
+  const { failing } = judge([{ path: 'lib/timeline.mjs', score: 58.6 }], { 'timeline.mjs': 58.6 }, 65)
+  assert.deepEqual(failing, [])
 })
 
 test('INV-floor-03 a ratcheted file that slips below its own score fails', () => {
   // A ratchet only earns its keep if it still catches a regression. Otherwise
   // it is an exemption with better manners.
-  const r = report({ 'timeline.mjs': [500, 1000] })
-  try {
-    const { code, out } = run(r.path)
-    assert.equal(code, 1)
-    assert.match(out, /timeline\.mjs/)
-  } finally {
-    r.cleanup()
-  }
+  const { failing } = judge([{ path: 'lib/timeline.mjs', score: 50 }], { 'timeline.mjs': 58.6 }, 65)
+  assert.deepEqual(failing.map((f) => f.path), ['lib/timeline.mjs'])
 })
 
 test('INV-floor-04 a ratcheted file that clears the floor is reported as ready to graduate', () => {
-  // A stale ratchet silently holds a file to a lower bar than it can meet.
-  const r = report({ 'timeline.mjs': [800, 1000] })
-  try {
-    const { code, out } = run(r.path)
-    assert.equal(code, 0)
-    assert.match(out, /drop its RATCHET entry/)
-  } finally {
-    r.cleanup()
-  }
+  // A stale pin silently holds a file to a lower bar than it can already meet.
+  const { failing, graduated } = judge([{ path: 'lib/timeline.mjs', score: 80 }], { 'timeline.mjs': 58.6 }, 65)
+  assert.deepEqual(failing, [])
+  assert.deepEqual(graduated.map((f) => f.path), ['lib/timeline.mjs'])
+})
+
+test('INV-floor-07 an empty ratchet holds every file to the floor itself', () => {
+  // The goal state. An entry is a temporary pin, not the normal way to pass.
+  const { failing, graduated } = judge([{ path: 'lib/a.mjs', score: 64 }, { path: 'lib/b.mjs', score: 66 }], {}, 65)
+  assert.deepEqual(failing.map((f) => f.path), ['lib/a.mjs'])
+  assert.deepEqual(graduated, [])
 })
 
 test('INV-floor-05 a report naming no scoreable mutant is an error, not a pass', () => {
@@ -98,4 +91,14 @@ test('INV-floor-06 a missing report is an error that says to run the mutator fir
   const { code, out } = run('/nonexistent/mutation.json')
   assert.equal(code, 2)
   assert.match(out, /npm run mutate/)
+})
+
+test('INV-floor-08 importing the module does not run the tool', () => {
+  // These tests import it for `judge`. A module that runs itself on import turns
+  // "borrow one function" into "run the whole tool", and it then fails wherever
+  // the report is absent — which is everywhere except a machine that has just
+  // run the mutator. It passed locally and failed in CI for exactly that reason.
+  assert.equal(typeof judge, 'function', 'the import completed at all')
+  const { failing } = judge([{ path: 'lib/x.mjs', score: 10 }], {}, 65)
+  assert.equal(failing.length, 1, 'and the borrowed function works on its own')
 })
