@@ -37,6 +37,23 @@ function withEnv(vars, fn) {
   }
 }
 
+// `resolveRange` consults AGENTIC_BASE_SHA / AGENTIC_HEAD_SHA before it looks at
+// git at all, so any test about the *fallback* paths has to run with them unset.
+// CI sets both for the gate step, which is how this was found: these tests
+// passed locally and failed there, which is the wrong way round for a test to
+// be wrong.
+function withoutEventEnv(fn) {
+  const saved = { base: process.env.AGENTIC_BASE_SHA, head: process.env.AGENTIC_HEAD_SHA }
+  delete process.env.AGENTIC_BASE_SHA
+  delete process.env.AGENTIC_HEAD_SHA
+  try {
+    return fn()
+  } finally {
+    if (saved.base !== undefined) process.env.AGENTIC_BASE_SHA = saved.base
+    if (saved.head !== undefined) process.env.AGENTIC_HEAD_SHA = saved.head
+  }
+}
+
 test('INV-changed-01 explicit base and head resolve to an event-sourced range, opts winning over the environment', () => {
   withEnv({ AGENTIC_BASE_SHA: 'env-base', AGENTIC_HEAD_SHA: 'env-head' }, () => {
     const r = resolveRange({ base: 'opt-base', head: 'opt-head' })
@@ -87,7 +104,7 @@ test('INV-changed-04 a resolvable merge-base is reported with source "merge-base
     git('commit', '-q', '-m', 'feature commit')
     process.chdir(root)
 
-    const r = resolveRange({ defaultBranch: 'main' })
+    const r = withoutEventEnv(() => resolveRange({ defaultBranch: 'main' }))
     assert.equal(r.source, 'merge-base')
     assert.ok(r.base, 'a real merge base commit must be reported, not left empty')
   } finally {
@@ -108,7 +125,7 @@ test('INV-changed-05 with no default branch to compare against, the range is rep
     // No branch by this name exists, so `git merge-base` fails and this falls
     // to the "everything is new" path — see INV-coupling-13, which checks the
     // resulting change set; this checks the range's own `source` label.
-    const r = resolveRange({ defaultBranch: 'no-such-branch' })
+    const r = withoutEventEnv(() => resolveRange({ defaultBranch: 'no-such-branch' }))
     assert.equal(r.source, 'no-base')
     assert.equal(r.base, null)
   } finally {
