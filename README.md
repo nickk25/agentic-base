@@ -49,10 +49,25 @@ violation names the rule, what triggered it, what is missing and what to do.
    `state`, `verify`).
 3. Write your own `coupling.yaml`. The one here is commented as the schema
    reference.
-4. Drop language-specific generators into `tools/agentic/generators/` and extra
+4. Declare where your tests live, in `package.json`:
+
+   ```json
+   "agentic": { "tests": {
+     "files": ["tools/agentic/**/*.test.mjs", "src/**/*.test.ts"],
+     "nodeArgs": ["--experimental-strip-types"]
+   } }
+   ```
+
+   Without this the engine looks only in `tools/agentic/`, and every invariant
+   your own tests cover is reported as untested.
+5. Give `tools/agentic/` its own contract in the adopting repository, carrying
+   the engine's invariants. They ship with the tests that answer to them, and
+   they do not belong in your root contract as a hundred and fifty sentences
+   about a component you did not write.
+6. Drop language-specific generators into `tools/agentic/generators/` and extra
    probes into `tools/agentic/probes/`. Both are `{ name, ... }` exports picked
-   up automatically. The engine never learns what language it is governing.
-5. Copy `CLAUDE.md` as the shape of a root contract and rewrite it for your
+   up automatically.
+7. Copy `CLAUDE.md` as the shape of a root contract and rewrite it for your
    project. Keep it a router, not a manual.
 
 ## Enforcement
