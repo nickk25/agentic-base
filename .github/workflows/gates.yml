@@ -2,6 +2,11 @@ name: gates
 
 on:
   pull_request:
+    # `labeled` is load-bearing: a `label` requirement can only ever be satisfied
+    # if adding the label re-runs the checks. Without it the gate is unpassable,
+    # and a rule nobody can satisfy is worse than no rule — it teaches agents
+    # that a red check is something to work around.
+    types: [opened, synchronize, reopened, labeled]
   push:
     branches: [main]
 

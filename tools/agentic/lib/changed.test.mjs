@@ -4,7 +4,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { resolveRange } from './changed.mjs'
+import { added, changedFiles, present, resolveRange, touched } from './changed.mjs'
 
 // changed.mjs had no direct test file at all before this one: every one of its
 // functions was exercised only indirectly, through coupling.test.mjs calling
@@ -132,4 +132,64 @@ test('INV-changed-05 with no default branch to compare against, the range is rep
     process.chdir(cwd)
     rmSync(root, { recursive: true, force: true })
   }
+})
+
+test('INV-changed-06 changedFiles reports one entry per changed path, tagged with its real status', () => {
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    writeFileSync(join(root, 'a.txt'), 'a')
+    writeFileSync(join(root, 'b.txt'), 'b')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'init')
+    const base = git('rev-parse', 'HEAD').trim()
+
+    writeFileSync(join(root, 'a.txt'), 'a2') // modified
+    writeFileSync(join(root, 'c.txt'), 'c') // added
+    rmSync(join(root, 'b.txt')) // deleted
+    git('add', '-A')
+    git('commit', '-q', '-m', 'change')
+    const head = git('rev-parse', 'HEAD').trim()
+
+    process.chdir(root)
+    const changes = changedFiles({ base, head, source: 'event' })
+    const byPath = Object.fromEntries(changes.map((c) => [c.path, c.status]))
+    assert.deepEqual(byPath, { 'a.txt': 'M', 'b.txt': 'D', 'c.txt': 'A' })
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('INV-changed-07 with no base, changedFiles diffs the empty tree against head, not the working tree', () => {
+  // A regression guard on the EMPTY_TREE constant itself, and on the branch
+  // that picks it: get either wrong and this stops diffing "nothing" against
+  // head and starts diffing something else, changing which paths (and how
+  // many) come back — see INV-coupling-13 for the same fact checked one layer
+  // up, through evaluate().
+  const { root, git } = makeRepo()
+  const cwd = process.cwd()
+  try {
+    writeFileSync(join(root, 'a.txt'), 'a')
+    git('add', '-A')
+    git('commit', '-q', '-m', 'init')
+    const head = git('rev-parse', 'HEAD').trim()
+    process.chdir(root)
+    const changes = changedFiles({ base: null, head, source: 'no-base' })
+    assert.deepEqual(changes, [{ status: 'A', path: 'a.txt' }])
+  } finally {
+    process.chdir(cwd)
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('INV-changed-08 touched/present/added derive exactly the right path lists from a mixed change set', () => {
+  const changes = [
+    { status: 'A', path: 'new.txt' },
+    { status: 'M', path: 'edited.txt' },
+    { status: 'D', path: 'gone.txt' },
+  ]
+  assert.deepEqual(touched(changes), ['new.txt', 'edited.txt', 'gone.txt'])
+  assert.deepEqual(present(changes), ['new.txt', 'edited.txt'])
+  assert.deepEqual(added(changes), ['new.txt'])
 })
