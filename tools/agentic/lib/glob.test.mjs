@@ -123,3 +123,33 @@ test('INV-glob-10 escaping leaves the pattern author\'s own globs alone', () => 
   assert.ok(match('src/*.ts', 'src/a.ts'))
   assert.deepEqual(match('src/{module}/**', 'src/core/a.ts'), { module: 'core' })
 })
+
+test('INV-glob-11 ? matches exactly one character, and never a path separator', () => {
+  assert.ok(match('src/?.ts', 'src/a.ts'))
+  assert.equal(match('src/?.ts', 'src/.ts'), null, '? must match some character, not be optional')
+  assert.equal(match('src/?.ts', 'src/ab.ts'), null, '? must match exactly one character, not several')
+  assert.equal(match('src/a?c/x', 'src/a/c/x'), null, '? must not match a path separator')
+})
+
+test('INV-glob-12 a trailing backslash at the very end of a pattern is a literal character, not an escape with nothing left to escape', () => {
+  // `i + 1 < pattern.length` is what keeps a lone trailing backslash from
+  // reading one character past the end of the pattern (undefined) and
+  // crashing instead of matching itself literally.
+  assert.ok(match('a\\', 'a\\'))
+})
+
+test('INV-glob-13 a single `*` at the very end of a pattern is not read as the start of `**`', () => {
+  assert.ok(match('src/*', 'src/index.ts'))
+  assert.equal(match('src/*', 'src/core/index.ts'), null, 'a lone trailing * must still stop at a separator')
+})
+
+test('INV-glob-14 ** at the very start of a pattern still crosses separators, not just one at the start of a later segment', () => {
+  assert.ok(match('**/x', 'a/b/x'), '** at position 0 must still behave as **, not fall back to a single *')
+  assert.ok(match('**/x', 'x'), '** also swallows the following separator when nothing precedes it')
+})
+
+test('INV-glob-15 a capture name with a valid prefix but an invalid character after it is still rejected', () => {
+  // Anchored at both ends: a regex missing its trailing `$` would accept the
+  // valid prefix and silently ignore whatever comes after it.
+  assert.throws(() => match('{ab!}/x', 'y'), /invalid capture name "ab!"/)
+})

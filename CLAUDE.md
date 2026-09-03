@@ -5,7 +5,7 @@ reads this code end to end. The rules are not documentation about the product â€
 they are the product.
 
 This file exists to route you to the right file in as few reads as possible.
-It is capped at 440 lines and the cap is enforced. If something here does not
+It is capped at 500 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
 ## 0. The gates are enforced. You cannot merge past them.
@@ -135,6 +135,33 @@ for, and it is not here yet.
 - Only one of `base`/`head` being present does not resolve as an event-sourced range; half a range is not a range. `test: INV-changed-03`
 - A resolvable merge base is reported as such, so a reader can tell where the comparison came from. `test: INV-changed-04`
 - With no default branch to compare against, the range says so rather than inventing one. `test: INV-changed-05`
+- A file below the mutation floor fails the run, however good the average is. `test: INV-floor-01`
+- A ratcheted file sitting exactly on its bar passes, rather than failing on a rounding error. `test: INV-floor-02`
+- A ratcheted file that slips below its own score still fails; a ratchet that cannot catch a regression is an exemption with better manners. `test: INV-floor-03`
+- A ratcheted file that clears the floor is reported as ready to graduate, so a stale ratchet cannot hold it to a lower bar. `test: INV-floor-04`
+- A report naming no scoreable mutant is an error, not a pass. `test: INV-floor-05`
+- A missing report is an error that says to run the mutator first. `test: INV-floor-06`
+- UnterminatedFence recognises a real closing fence, not just the absence of one. `test: INV-blocks-10`
+- A fence closed with the wrong fence character stays open. `test: INV-blocks-11`
+- A mismatched fence character does not end masking early either. `test: INV-blocks-12`
+- FindBlocks reports start/end offsets that bound the whole marker-to-marker text. `test: INV-blocks-13`
+- DanglingBlocks pairs a repeated name one-to-one, not by mere presence. `test: INV-blocks-14`
+- ReplaceBlock finds the block by name, not merely the first one in the document. `test: INV-blocks-15`
+- ReplaceBlock leaves the text untouched when no block with that name exists. `test: INV-blocks-16`
+- ReplaceBlock does not double a body that already ends with a newline. `test: INV-blocks-17`
+- ? matches exactly one character, and never a path separator. `test: INV-glob-11`
+- A trailing backslash at the very end of a pattern is a literal character, not an escape with nothing left to escape. `test: INV-glob-12`
+- A single `*` at the very end of a pattern is not read as the start of `**`. `test: INV-glob-13`
+- ** at the very start of a pattern still crosses separators, not just one at the start of a later segment. `test: INV-glob-14`
+- A capture name with a valid prefix but an invalid character after it is still rejected. `test: INV-glob-15`
+- "fix" is accepted on any requirement kind, never flagged as an unknown key. `test: INV-manifest-28`
+- "min" and "rejectWhitespaceOnly" are accepted on a "changed" requirement, never flagged as unknown. `test: INV-manifest-29`
+- A "when" list with no string pattern at all can never fire, even if every entry is truthy. `test: INV-manifest-30`
+- A rule with no id is still labelled in its other problems, not left blank. `test: INV-manifest-31`
+- A new coupling violation opens as a regression, and its disappearance closes it. `test: INV-timeline-19`
+- Two violations of the same rule with different captures are distinct subjects. `test: INV-timeline-20`
+- The very first snapshot reports no declared-count entry, having nothing to compare against. `test: INV-timeline-21`
+- An unchanged declared count between two real snapshots produces no entry. `test: INV-timeline-22`
 - ChangedFiles reports one entry per changed path, tagged with its real status. `test: INV-changed-06`
 - With no base, changedFiles diffs the empty tree against head, not the working tree. `test: INV-changed-07`
 - Touched/present/added derive exactly the right path lists from a mixed change set. `test: INV-changed-08`

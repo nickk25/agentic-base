@@ -297,3 +297,34 @@ test('INV-manifest-27 a YAML syntax error is reported by name and position, not 
   // of re-reading the whole file.
   assert.match(problems[0].message, /line \d/i)
 })
+
+test('INV-manifest-28 "fix" is accepted on any requirement kind, never flagged as an unknown key', () => {
+  const problems = validateRules([
+    { id: 'with-fix', when: ['a'], require: [{ kind: 'label', name: 'reviewed', fix: 'add the label' }] },
+  ])
+  assert.equal(problems.length, 0)
+})
+
+test('INV-manifest-29 "min" and "rejectWhitespaceOnly" are accepted on a "changed" requirement, never flagged as unknown', () => {
+  const problems = validateRules([
+    { id: 'ws', when: ['a'], require: [{ kind: 'changed', paths: ['b'], min: 1, rejectWhitespaceOnly: true }] },
+  ])
+  assert.equal(problems.length, 0)
+})
+
+test('INV-manifest-30 a "when" list with no string pattern at all can never fire, even if every entry is truthy', () => {
+  // Only a string entry can ever be a positive pattern; anything else (a stray
+  // number, an object) can neither match a path nor be recognised as a
+  // negation, so a "when" made only of such entries is exactly as inert as an
+  // empty one.
+  const problems = validateRules([{ id: 'no-strings', when: [123], require: [{ kind: 'label', name: 'x' }] }])
+  assert.ok(problems.some((p) => p.ruleId === 'no-strings' && /can never fire/.test(p.message)))
+})
+
+test('INV-manifest-31 a rule with no id is still labelled in its other problems, not left blank', () => {
+  const problems = validateRules([{ when: 'not-a-list', require: [] }])
+  assert.ok(
+    problems.some((p) => /^\(unnamed rule\): "when" must be a list/.test(p.message)),
+    'every problem for an unnamed rule must still say "(unnamed rule)", not stand with nothing before the colon',
+  )
+})
