@@ -50,10 +50,8 @@ const snapshots = () =>
 async function takeSnapshot(allowDirty = false) {
   // Cleanliness is checked before anything is measured: a snapshot stamped
   // `git rev-parse HEAD` while the working tree has uncommitted changes
-  // measures code that commit never contained (Bug 1) — the committed
-  // docs/state.json was proof, stamped with a sha older than the test files
-  // its own numbers came from. Fail fast rather than measure first and
-  // discover the lie afterwards.
+  // measures code that commit never contained. Fail fast rather than
+  // measure first and discover the lie afterwards.
   const dirty = sh('git', ['status', '--porcelain']).length > 0
   const refusal = refuseDirty(dirty, allowDirty)
   if (refusal) throw new Error(refusal)
@@ -195,7 +193,6 @@ footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
     <div class="num"><b>${state.numbers.invariantsCovered}/${state.numbers.invariantsDeclared}</b><span>invariants with a test</span></div>
     <div class="num"><b>${state.numbers.failingTests}</b><span>failing tests</span></div>
     <div class="num"><b>${state.health.openRegressions}</b><span>open regressions</span></div>
-    <div class="num"><b>${state.health.usefulTransitionRate}</b><span>useful transitions / snapshot</span></div>
   </div>
 
   <section><h1>Where not to step</h1><ul>${zones}</ul></section>

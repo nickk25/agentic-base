@@ -10,16 +10,12 @@
  *   contract   - A message already in the target language produces no plan. `test: INV-core-01`
  *   test file  test('INV-core-01 a message already in the target language produces no plan', () => { ... })
  *
- * The id lives in the test's own title, not in a nearby comment. A title is
- * exactly what Node's test runner prints back in its TAP output, so reading
- * ids off a finished run costs nothing beyond a substring match against text
- * Node already produced — no parsing of test file source, no notion of which
- * bracket a comment happens to sit inside. `--offline` is the one mode that
- * never executes anything; it looks for a `test(` (or `test.only`, `.skip`,
- * `.todo`, …) call whose title opens with an id, which is a fixed anchor
- * immediately after the opening quote — not a search outward from the id —
- * so a stray bracket or an unrelated string literal elsewhere in the file has
- * nothing to derail.
+ * The id lives in the test's own title, not in a nearby comment: it is a fixed
+ * anchor immediately after the opening quote of a `test(`/`test.skip(`/`it(`…
+ * call, not a search outward from the id, so a stray bracket or an unrelated
+ * string literal elsewhere in the file has nothing to derail. The whole suite
+ * runs once, and every id read off a title is checked against the state of
+ * the test that carried it into that run.
  *
  * Both directions are enforced, and the second one is the one people forget:
  *
@@ -33,13 +29,14 @@
  * carry an id; the rest are just tests.
  *
  * There is no "orphan id" bucket, and that is deliberate rather than an
- * oversight. The old comment-based scheme could produce an id that belonged
- * to no test at all — a `// @invariant` sitting outside any `test(...)` call —
- * which is exactly the failure mode that forced it to scan backward through
- * source in the first place. An id living inside a test's own title string
- * has no such state to occupy: it is either read off a real, running test (an
- * occurrence) or it never appears in a title, in which case it is just an
- * invariant nobody wrote a test for — already reported below as `missingTest`.
+ * oversight: an id lives inside a test's own title string, and a title string
+ * has no position to occupy except inside a real `test(...)` call. So an id
+ * is always either read off a real, running test (an occurrence) or it never
+ * appears in a title at all, in which case it is just an invariant nobody
+ * wrote a test for — already reported below as `missingTest`. A scheme that
+ * instead anchored an id to a nearby comment (a `// @invariant` sitting
+ * outside any `test(...)` call) would have no such guarantee and could
+ * produce an id belonging to no test at all.
  *
  * This proves an invariant is *covered*, never that the test is any good. A test
  * that asserts nothing satisfies this happily. Mutation testing is what closes
@@ -48,7 +45,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { discoverTestFiles, parseTap, runTapForAll } from './probes/index.mjs'
+import { discoverTestFiles, runSuite } from './probes/index.mjs'
 
 const ROOT = process.cwd()
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.next'])
@@ -93,40 +90,26 @@ function collect(files, pattern) {
 // whole point — it is the convention ("put the id at the front of the title")
 // turned into an anchor a regex can find without understanding the rest of the
 // file at all.
-const TITLE_RE = new RegExp(`\\b(?:test|it)(?:\\.(\\w+))?\\(\\s*(['"\`])(${ID})\\b`, 'g')
+const TITLE_RE = new RegExp(`\\b(?:test|it)(?:\\.\\w+)?\\(\\s*(['"\`])(${ID})\\b`, 'g')
 
 /**
  * Every id declared at the front of a test title in `file`, structurally —
- * from source text alone, without running anything.
- *
- * This is what `--offline` relies on entirely, and what online mode uses to
- * attach a file and line number to an id before checking its execution state
- * (the TAP output a test run produces carries no file attribution at all —
- * see `runTapForAll`).
+ * used to attach a file and line number to an id before checking its
+ * execution state (a test run's results carry no file attribution at all —
+ * see `runSuite`).
  *
  * @returns {{ id: string, line: number }[]}
  */
 function titleIdsIn(content) {
   const found = []
   for (const m of content.matchAll(TITLE_RE)) {
-    // `test.skip` and `test.todo` declare a test that never asserts anything.
-    // Online mode learns that from the run; offline mode can read it straight
-    // off the call, and leaving that free catch on the table would make the
-    // weaker mode weaker than it needs to be.
-    const modifier = m[1]
-    found.push({
-      id: m[3],
-      line: content.slice(0, m.index).split('\n').length,
-      inert: modifier === 'skip' || modifier === 'todo',
-    })
+    found.push({ id: m[2], line: content.slice(0, m.index).split('\n').length })
   }
   return found
 }
 
 function main() {
   const json = process.argv.includes('--json')
-  const offline = process.argv.includes('--offline')
-  const mode = offline ? 'offline' : 'online'
 
   const files = walk()
   const contracts = files.filter((f) => f.endsWith('CLAUDE.md'))
@@ -135,39 +118,31 @@ function main() {
   const declared = collect(contracts, new RegExp(`\`test:\\s*(${ID})\``, 'g'))
 
   // Every id found at the front of a test title, structurally.
-  const occurrences = new Map() // id -> [{file, line, inert}]
+  const occurrences = new Map() // id -> [{file, line}]
   for (const file of testFiles) {
     const rel = relative(ROOT, file)
     const content = readFileSync(file, 'utf8')
-    for (const { id, line, inert } of titleIdsIn(content)) {
+    for (const { id, line } of titleIdsIn(content)) {
       if (!occurrences.has(id)) occurrences.set(id, [])
-      occurrences.get(id).push({ file: rel, line, inert })
+      occurrences.get(id).push({ file: rel, line })
     }
   }
 
-  // Online mode (default): run every test file together in a single process
-  // and check each id against the state of the test whose title carried it.
-  // One process rather than one per file is enough here — unlike a plain test
-  // name, an id is unique by construction (a repeat is reported below as
-  // `duplicateTags`), so nothing depends on knowing which file a passing test
-  // came from. Offline mode skips execution and accepts the structural
-  // association alone (weaker, but a declared id with no occurrence at all is
-  // still `missingTest` either way).
-  let results = null
-  if (!offline) {
-    results = new Map() // id -> state
-    const relFiles = testFiles.map((f) => relative(ROOT, f))
-    const r = runTapForAll(ROOT, relFiles)
-    const idAtStart = new RegExp(`^(${ID})\\b`)
-    for (const entry of parseTap(r.out)) {
-      const m = idAtStart.exec(entry.name)
-      if (m) results.set(m[1], entry.state)
-    }
+  // Run every test file together, once, and check each id against the state
+  // of the test whose title carried it. One process rather than one per file
+  // is enough here — unlike a plain test name, an id is unique by construction
+  // (a repeat is reported below as `duplicateTags`), so nothing depends on
+  // knowing which file a passing test came from.
+  const results = new Map() // id -> state
+  const relFiles = testFiles.map((f) => relative(ROOT, f))
+  const idAtStart = new RegExp(`^(${ID})\\b`)
+  for (const { name, state } of runSuite(ROOT, relFiles).leaves) {
+    const m = idAtStart.exec(name)
+    if (m) results.set(m[1], state)
   }
 
-  const stateOf = (id) => results?.get(id) ?? 'not run'
-  const inert = (id) => (occurrences.get(id) ?? []).some((o) => o.inert)
-  const isProven = (id) => !inert(id) && (!results || stateOf(id) === 'pass')
+  const stateOf = (id) => results.get(id) ?? 'not run'
+  const isProven = (id) => stateOf(id) === 'pass'
 
   const tagged = new Set(occurrences.keys())
   const missingTest = [...declared.keys()].filter((id) => !tagged.has(id))
@@ -176,7 +151,7 @@ function main() {
   // means a title shape the regex cannot read — a template literal, a variable,
   // a helper — and without this it would fall out of both directions and be
   // reported nowhere at all.
-  const seenInRun = new Set(results ? results.keys() : [])
+  const seenInRun = new Set(results.keys())
   const unscanned = [...seenInRun].filter((id) => !tagged.has(id))
   const undocumented = [...new Set([...tagged, ...seenInRun])].filter((id) => !declared.has(id))
   const duplicated = [...declared.entries()].filter(([, at]) => at.length > 1)
@@ -184,10 +159,7 @@ function main() {
   // looking covered, so neither is really load-bearing.
   const duplicateTags = [...occurrences.entries()].filter(([, at]) => at.length > 1)
 
-  // Declared, tagged, but the test that carries the tag did not execute-and-
-  // pass. Only meaningful in online mode — offline mode never checks
-  // execution, so this is always empty there. The mode is always printed
-  // below, precisely so that "why is this empty" is never a hidden question.
+  // Declared, tagged, but the test that carries the tag did not execute-and-pass.
   const unverified = [...occurrences.entries()]
     .filter(([id]) => declared.has(id))
     .filter(([id]) => !isProven(id))
@@ -197,7 +169,6 @@ function main() {
 
   if (json) {
     console.log(JSON.stringify({
-      mode,
       declared: declared.size,
       tagged: tagged.size,
       missingTest,
@@ -210,19 +181,12 @@ function main() {
     process.exit(problems ? 1 : 0)
   }
 
-  const modeLine = offline
-    ? `${c.dim}mode: offline — structural check only, tests were NOT executed${c.off}`
-    : `${c.dim}mode: online — the test suite was executed and results checked${c.off}`
-
   if (!problems) {
     console.log(`${c.green}✓${c.off} ${declared.size} invariant${declared.size === 1 ? '' : 's'} declared, each with exactly one test.`)
-    console.log(modeLine)
     return
   }
 
-  console.error(`\n${c.red}${c.bold}${problems} invariant problem${problems > 1 ? 's' : ''}${c.off}`)
-  console.error(modeLine)
-  console.error('')
+  console.error(`\n${c.red}${c.bold}${problems} invariant problem${problems > 1 ? 's' : ''}${c.off}\n`)
 
   for (const id of missingTest) {
     const at = declared.get(id)[0]

@@ -163,6 +163,12 @@ for, and it is not here yet.
 - `loadManifest` reads and validates a real manifest file from disk. `test: INV-manifest-21`
 - `validateRules` validates an already-parsed rule array directly, with no YAML or file I/O involved. `test: INV-manifest-22`
 - Removing a healthy subject does retire its record, since there is nothing left to check. `test: INV-timeline-13`
+- A renamed test — a passing subject vanishing while another passing subject appears, in matching counts, in the same diff — is recorded as neutral, never as a regression. `test: INV-timeline-07`
+- `health` reports only what is open, with no cumulative counter and no rate. `test: INV-timeline-14`
+- A mass rename of many passing tests produces only neutral entries and leaves nothing open. `test: INV-timeline-15`
+- When removals outnumber matching additions, the unmatched ones still report as regressions; a real deletion does not hide behind rename detection. `test: INV-timeline-16`
+- A genuine failure is still an open regression in a diff that also contains a rename. `test: INV-timeline-17`
+- A failing test's disappearance is never matched into a rename; only a passing subject can be presumed carried over. `test: INV-timeline-18`
 - An escaped metacharacter is a literal, not a wildcard, so a captured value can re-enter a pattern without becoming one. `test: INV-glob-09`
 - Escaping a captured value leaves the pattern author's own globs intact. `test: INV-glob-10`
 - A `gen:` marker inside a code fence is an example, not a region. Documenting
@@ -182,8 +188,6 @@ for, and it is not here yet.
   Otherwise declaring easy claims becomes the cheapest way to look productive.
   `test: INV-timeline-04`
 - A regression stays open until the same subject recovers. `test: INV-timeline-05`
-- The useful-transition rate is measured per snapshot, not per entry, so a burst
-  of merges that changed nothing drags it down. `test: INV-timeline-06`
 - An empty block body renders and re-renders without corrupting the opening marker line. `test: INV-blocks-04`
 - Rendering an already-rendered document produces byte-identical output (the round trip is idempotent). `test: INV-blocks-05`
 - An unterminated code fence is reported by its opening line number instead of silently hiding every later block. `test: INV-blocks-06`
@@ -202,12 +206,9 @@ for, and it is not here yet.
 - Duplicate test names across different files do not collide in the tests probe's name-to-state map. `test: INV-invariants-05`
 - The TAP parser records a SKIP directive as its own state, never as a pass, and strips the directive from the test name. `test: INV-invariants-06`
 - The TAP parser does not count a `describe()` suite's own summary line as a test. `test: INV-invariants-07`
-- Offline mode is announced in the output and does not require execution to satisfy a claim. `test: INV-invariants-08`
 - An id carried by an `it()` test is recognised in both directions, so an entire dialect of the test runner is not invisible. `test: INV-invariants-10`
-- A test declared with `.skip` or `.todo` does not back a claim, even offline where nothing is executed. `test: INV-invariants-11`
 - A declared claim whose test fails is not reported as covered by the state probe. `test: INV-invariants-12`
 - A tag inside a test that actually ran and passed satisfies the declared invariant. `test: INV-invariants-09`
-- A renamed test's old name is retired, not left open, once it no longer exists to be re-checked. `test: INV-timeline-07`
 - Removing a subject entirely (a module deleted after being over budget) clears any open regression already recorded against it. `test: INV-timeline-08`
 - Two different transition kinds on the same subject can never cancel each other's open regressions. `test: INV-timeline-09`
 - An invariant that regains coverage still closes its open regression, even though the covering and uncovering kinds are named differently. `test: INV-timeline-10`

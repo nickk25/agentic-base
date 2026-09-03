@@ -48,23 +48,16 @@ test('INV-timeline-05 a regression stays open until the same subject recovers', 
   assert.equal(openRegressions(entries.slice(0, 1)).length, 1)
 })
 
-test('INV-timeline-06 the useful-transition rate is measured per snapshot, not per entry', () => {
-  // A burst of merges that changed nothing drags this down. That is the point:
-  // it separates a repository that is moving from one that is going somewhere.
-  const entries = diff(withTests('a', { one: 'fail' }), withTests('b', { one: 'pass' }))
-  assert.equal(health(entries, 4).usefulTransitionRate, 0.25)
-})
-
-test('INV-timeline-07 a renamed test does not leave a permanent open regression', () => {
-  // A rename emits test.removed (down) for the old name; the new name arrives
-  // already passing, which is neutral by the "already working" rule, so
-  // nothing was ever going to produce an `up` for the vanished old name. The
-  // removal itself must still show up in the raw timeline (for audit), just
-  // not as something still open.
+test('INV-timeline-07 a renamed test is recorded as a neutral rename, not a regression', () => {
+  // One old name vanishes while it was passing and one new name appears
+  // already passing, in the same diff, with the counts matching (1 and 1):
+  // that is treated as a rename. It still shows up in the raw timeline (for
+  // audit), just as `test.renamed`/`neutral` rather than `test.removed`/
+  // `down`, and it was never going to leave anything open.
   const entries = diff(withTests('a', { old: 'pass' }), withTests('b', { new: 'pass' }))
   assert.equal(entries.length, 1)
-  assert.equal(entries[0].kind, 'test.removed')
-  assert.equal(entries[0].severity, 'down')
+  assert.equal(entries[0].kind, 'test.renamed')
+  assert.equal(entries[0].severity, 'neutral')
   assert.equal(openRegressions(entries).length, 0)
 })
 
@@ -137,4 +130,68 @@ test('INV-timeline-13 removing a healthy subject does retire its record', () => 
     ...diff(snap('b', { core: { lines: 99, budget: 5, overBudget: true } }), snap('c', {})),
   ]
   assert.equal(openRegressions(entries).length, 0)
+})
+
+test('INV-timeline-14 health reports only snapshots and open regressions, nothing cumulative', () => {
+  // No `improvements`, `regressions` or transition rate: a running total only
+  // ever grows, so it reads the same for a repository with a long healthy
+  // history and one that just broke a lot of things, and a per-snapshot rate
+  // reads the same for "nothing to fix" as for "fixing nothing".
+  // openRegressions is the number worth reading — it already answers "is
+  // anything broken right now" — so it is the only one kept.
+  const entries = diff(withTests('a', { one: 'fail' }), withTests('b', { one: 'pass' }))
+  const h = health(entries, 4)
+  assert.deepEqual(Object.keys(h).sort(), ['openRegressions', 'snapshots'])
+  assert.equal(h.snapshots, 4)
+  assert.equal(h.openRegressions, 0)
+})
+
+test('INV-timeline-15 a mass rename of many passing tests produces neutral entries, never a wall of down', () => {
+  const before = withTests('a', { t1: 'pass', t2: 'pass', t3: 'pass' })
+  const after = withTests('b', { t1_new: 'pass', t2_new: 'pass', t3_new: 'pass' })
+  const entries = diff(before, after)
+  assert.equal(entries.length, 3)
+  assert.ok(entries.every((e) => e.kind === 'test.renamed' && e.severity === 'neutral'))
+  assert.equal(openRegressions(entries).length, 0)
+})
+
+test('INV-timeline-16 removals in excess of the matching additions still report as regressions', () => {
+  // Two names vanish, only one replacement appears: at most one of the
+  // vanished names can be presumed carried over by count alone, so the other
+  // is reported as a genuine removal rather than folded into the rename.
+  const before = withTests('a', { t1: 'pass', t2: 'pass' })
+  const after = withTests('b', { t1_new: 'pass' })
+  const entries = diff(before, after)
+  const renamed = entries.filter((e) => e.kind === 'test.renamed')
+  const removed = entries.filter((e) => e.kind === 'test.removed')
+  assert.equal(renamed.length, 1)
+  assert.equal(removed.length, 1)
+  assert.equal(removed[0].severity, 'down')
+})
+
+test('INV-timeline-17 a genuine failure still reports as a regression in a diff that also contains a rename', () => {
+  const before = withTests('a', { old: 'pass', stable: 'pass' })
+  const after = withTests('b', { new_name: 'pass', stable: 'fail' })
+  const entries = diff(before, after)
+  const renamed = entries.find((e) => e.kind === 'test.renamed')
+  const broken = entries.find((e) => e.subject === 'stable')
+  assert.ok(renamed, 'the rename is still detected')
+  assert.equal(broken.kind, 'test.flip')
+  assert.equal(broken.severity, 'down')
+  assert.equal(openRegressions(entries).length, 1)
+})
+
+test('INV-timeline-18 a failing test that disappears is never mistaken for a rename', () => {
+  // Only a passing subject can be presumed carried over under a new name; a
+  // failing subject's disappearance is a removal, matching count or not,
+  // because folding it into a rename would let deleting a failing test pass
+  // as neutral instead of the regression-preserving removal INV-timeline-12
+  // and INV-timeline-16 both require.
+  const before = withTests('a', { broken: 'fail' })
+  const after = withTests('b', { fresh: 'pass' })
+  const entries = diff(before, after)
+  assert.equal(entries.length, 1)
+  assert.equal(entries[0].kind, 'test.removed')
+  assert.equal(entries[0].subject, 'broken')
+  assert.equal(entries[0].severity, 'down')
 })

@@ -5,22 +5,21 @@
  * its shape. `gate.mjs` and `contracts.mjs` both read the same file and both
  * turn it into rules that get run — a malformed manifest is exactly as
  * dangerous to one as to the other, so there must be exactly one place that
- * decides what "malformed" means. Before this module existed, `gate.mjs` did
- * the checking and `contracts.mjs` did not: `when: "src/*"` written as a
- * string instead of a list is valid YAML, and `generators/index.mjs`'s
- * `coupling` generator calls `r.when.filter(...)` on it directly, which
+ * decides what "malformed" means, and neither tool may see a rule that has
+ * not passed through here. `when: "src/*"` written as a string instead of a
+ * list is valid YAML but the wrong shape: a string iterates character by
+ * character, so a generator that calls `r.when.filter(...)` on it directly
  * throws `TypeError: r.when.filter is not a function` instead of ever naming
- * the rule or the mistake. Neither tool may see a rule that has not passed
- * through here.
+ * the rule or the mistake, and a caller that instead just iterates it gets a
+ * rule that fires on unrelated paths while staying silent on the one it meant
+ * to catch.
  *
  * A validation failure is data, not an exception: callers collect a list of
  * `ManifestProblem`s and decide for themselves how to report and exit, the
- * same way `gate.mjs`'s violations already work. `when: "src/*"` is the shape
- * bug that motivated the original check — a string iterates character by
- * character and the rule fires on unrelated paths while staying silent on the
- * one it meant to catch. The checks below extend that same idea to rules that
- * parse and run without error but can never do anything: those are worse than
- * a crash, because they look like a working rule.
+ * same way `gate.mjs`'s violations already work. The checks below extend the
+ * same shape-checking idea to rules that parse and run without error but can
+ * never do anything: those are worse than a crash, because they look like a
+ * working rule.
  */
 
 import { readFileSync } from 'node:fs'
@@ -42,11 +41,6 @@ const KIND_KEYS = {
 
 /**
  * @typedef {Object} ManifestProblem
- * @property {'error'} level    Every problem below is treated as blocking —
- *   see the per-check comments for why none of them qualified as merely
- *   advisory. The field stays typed as a union of one so a future check that
- *   is genuinely optional (a style nit, a naming convention) has somewhere to
- *   put `'warning'` without every caller needing to change shape first.
  * @property {string|null} ruleId  The offending rule's id, or `null` when the
  *   problem is about the manifest as a whole (the file is missing, or it has
  *   no rules) rather than about one rule in it.
@@ -74,7 +68,7 @@ function canFire(when) {
 /**
  * Validate an already-parsed array of rules.
  *
- * Two different kinds of problem live here, and both end up `level: 'error'`:
+ * Two different kinds of problem live here, and both block:
  *
  *  - Malformed data: a missing "id", a "when" that isn't a list, a "kind"
  *    that doesn't exist, a duplicate rule id, a "min" that isn't a positive
@@ -106,7 +100,7 @@ export function validateRules(rules) {
 
   for (const rule of rules) {
     const label = rule?.id ?? '(unnamed rule)'
-    const err = (message) => problems.push({ level: 'error', ruleId: rule?.id ?? null, message: `${label}: ${message}` })
+    const err = (message) => problems.push({ ruleId: rule?.id ?? null, message: `${label}: ${message}` })
 
     if (!rule?.id) {
       err('missing "id"')
@@ -135,7 +129,7 @@ export function validateRules(rules) {
     if (!Array.isArray(rule?.require)) continue
     rule.require.forEach((req, i) => {
       const where = `${label}, require[${i}]`
-      const reqErr = (message) => problems.push({ level: 'error', ruleId: rule?.id ?? null, message: `${where}: ${message}` })
+      const reqErr = (message) => problems.push({ ruleId: rule?.id ?? null, message: `${where}: ${message}` })
 
       if (!KNOWN_KINDS.has(req?.kind)) {
         reqErr(`"kind" must be one of ${[...KNOWN_KINDS].join(', ')}, got ${JSON.stringify(req?.kind)}`)
@@ -183,11 +177,11 @@ export function parseManifest(raw) {
     doc = parse(raw)
   } catch (err) {
     const firstLine = String(err.message).split('\n')[0]
-    return { rules: [], problems: [{ level: 'error', ruleId: null, message: `could not be parsed as YAML: ${firstLine}` }] }
+    return { rules: [], problems: [{ ruleId: null, message: `could not be parsed as YAML: ${firstLine}` }] }
   }
   const rules = doc?.rules
   if (!Array.isArray(rules) || rules.length === 0) {
-    return { rules: [], problems: [{ level: 'error', ruleId: null, message: 'has no rules declared' }] }
+    return { rules: [], problems: [{ ruleId: null, message: 'has no rules declared' }] }
   }
   return { rules, problems: validateRules(rules) }
 }
@@ -207,7 +201,7 @@ export function loadManifest(path) {
   try {
     raw = readFileSync(path, 'utf8')
   } catch {
-    return { rules: [], problems: [{ level: 'error', ruleId: null, message: 'not found — this repository declares no coupling rules yet' }] }
+    return { rules: [], problems: [{ ruleId: null, message: 'not found — this repository declares no coupling rules yet' }] }
   }
   return parseManifest(raw)
 }

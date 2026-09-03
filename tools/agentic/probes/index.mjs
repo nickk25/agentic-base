@@ -15,7 +15,7 @@
  * and a number that only ever goes up stops being read.
  */
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
@@ -64,32 +64,6 @@ export function discoverTestFiles(root = ROOT) {
   } catch {
     return []
   }
-}
-
-/** Run one test file in isolation and capture its raw TAP output. */
-export function runTapForFile(root, relFile) {
-  return run('node', ['--test', '--test-reporter=tap', relFile], { cwd: root })
-}
-
-/**
- * Run several test files together, in one subprocess, and capture their
- * combined raw TAP output.
- *
- * `invariants.mjs` is the caller: it only needs to know, for each invariant
- * id, whether the test whose title carries that id passed — and an id is
- * unique by construction (a repeat is itself a reported problem), so there is
- * no need to know which file a given result came from. Spawning once for the
- * whole set is both simpler than and faster than one subprocess per file.
- * Passing no files runs whatever `node --test` would discover on its own
- * (the whole cwd), which is never what a caller here wants, so an empty list
- * short-circuits to empty output instead.
- */
-export function runTapForAll(root, relFiles) {
-  // A failing suite emits a diagnostic block per failure, so the output grows
-  // fastest exactly when it matters most. Truncation would not error — it would
-  // make every id past the cut look like it never ran.
-  if (!relFiles.length) return { ok: true, out: '' }
-  return run('node', ['--test', '--test-reporter=tap', ...relFiles], { cwd: root, maxBuffer: 64 * 1024 * 1024 })
 }
 
 /**
@@ -167,6 +141,59 @@ export function parseTap(tapText) {
   return leaves
 }
 
+// A second, minimal test reporter, riding alongside the `tap` one in the same
+// run, whose only job is to say which file each leaf test came from — the one
+// thing TAP text never carries (see `runSuite`). Passed to `node --test` as a
+// `data:` module specifier so no extra file is needed. Written as a single
+// line with no `#`: a data: URL's data is percent-decoded and its content
+// ends at the first `#`, so either would corrupt or truncate the source.
+const FILE_REPORTER =
+  "data:text/javascript,export default async function*(source){for await(const e of source){" +
+  "if(e.type!=='test:pass'&&e.type!=='test:fail')continue;" +
+  "const d=e.data;if(d.details&&d.details.type==='suite')continue;" +
+  "yield JSON.stringify({file:d.file})+String.fromCharCode(10)}}"
+
+/**
+ * Run every test file once, in a single subprocess, and return each leaf
+ * test's TAP result together with the file it came from.
+ *
+ * `invariants.mjs` only needs to know, per invariant id, whether the test
+ * whose title carries that id passed — it never needs the file. The `tests`
+ * probe needs exactly the file, to key results so two files with an
+ * identically named test do not collide. Both are answered by one run: Node
+ * hands every attached reporter the same ordered stream of test events, so
+ * the `tap` reporter (parsed by {@link parseTap} above) and `FILE_REPORTER`
+ * (which emits one line per non-suite leaf, in that same order) produce two
+ * lists that line up position-for-position — the Nth leaf in one is the Nth
+ * leaf in the other. Zipping them attaches a file to each TAP leaf without
+ * having to decide what "the same test" means across two differently shaped
+ * outputs.
+ *
+ * Passing no files would let `node --test` fall back to discovering the
+ * whole cwd on its own, which no caller here wants, so an empty list
+ * short-circuits to an empty result instead.
+ */
+export function runSuite(root, relFiles) {
+  if (!relFiles.length) return { leaves: [] }
+  // A failing suite emits a diagnostic block per failure, so output grows
+  // fastest exactly when it matters most; maxBuffer covers both streams.
+  const r = spawnSync('node', [
+    '--test', '--test-reporter=tap', '--test-reporter-destination=stdout',
+    '--test-reporter', FILE_REPORTER, '--test-reporter-destination=stderr',
+    ...relFiles,
+  ], { cwd: root, env: CLEAN_ENV, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+
+  const files = (r.stderr ?? '').split('\n').filter(Boolean).map((line) => {
+    try {
+      return relative(root, JSON.parse(line).file)
+    } catch {
+      return null
+    }
+  })
+
+  return { leaves: parseTap(r.stdout ?? '').map((leaf, i) => ({ ...leaf, file: files[i] ?? null })) }
+}
+
 /**
  * Which invariants exist and which of them a test actually covers.
  *
@@ -182,8 +209,7 @@ export const invariants = {
       const d = JSON.parse(r.out)
       // `unverified` is a declared invariant whose test exists and did NOT pass.
       // Counting it as covered would put the failure on the state page as a
-      // success — the online mode's entire finding, discarded by its only
-      // consumer.
+      // success — the check's entire finding, discarded by its only consumer.
       const unverified = (d.unverified ?? []).map((u) => u.id)
       const uncovered = [...d.missingTest, ...unverified]
       return { declared: d.declared, covered: d.declared - uncovered.length, uncovered, undocumented: d.undocumented }
@@ -197,30 +223,22 @@ export const invariants = {
  * Every named test and whether it passed.
  *
  * Stored per name rather than as a total, because a total hides the case that
- * matters: one test flipping from pass to fail while another is added.
- *
- * Each test file runs in its own `node --test` process, one file at a time.
- * Node's TAP output never groups a run of several files under a per-file
- * header, so a single "run everything as one glob" invocation gives no way to
- * tell which file a passing test's name came from — two files with a test of
- * the same name silently collide into one entry. Running one file at a time
- * removes the ambiguity at the source: we always know which file produced the
- * output we are parsing. The key is `<repo-relative file> :: <test name>` —
- * relative, so it is identical on every machine (an absolute path is not, and
- * that mismatch would manufacture a phantom `test.removed` timeline entry
- * any time a snapshot was taken from a different checkout or machine).
+ * matters: one test flipping from pass to fail while another is added. The
+ * key is `<repo-relative file> :: <qualified name>` — relative, so it is
+ * identical on every machine (an absolute path is not, and that mismatch
+ * would manufacture a phantom `test.removed` timeline entry any time a
+ * snapshot was taken from a different checkout or machine) — and file-
+ * qualified, so two files with an identically named test do not collide into
+ * one entry.
  */
 export const tests = {
   name: 'tests',
   measure: (ctx) => {
     const root = ctx?.root ?? ROOT
+    const relFiles = discoverTestFiles(root).map((f) => relative(root, f))
     const byName = {}
-    for (const file of discoverTestFiles(root)) {
-      const rel = relative(root, file)
-      const r = runTapForFile(root, rel)
-      for (const entry of parseTap(r.out)) {
-        byName[`${rel} :: ${entry.qualifiedName}`] = entry.state
-      }
+    for (const { file, qualifiedName, state } of runSuite(root, relFiles).leaves) {
+      byName[`${file} :: ${qualifiedName}`] = state
     }
     return { byName, failing: Object.entries(byName).filter(([, v]) => v === 'fail').map(([k]) => k) }
   },

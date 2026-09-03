@@ -9,10 +9,13 @@ import { loadManifest, parseManifest, validateRules } from './manifest.mjs'
 // directory in os.tmpdir() when a test needs to exercise the file-reading
 // half of the loader — never committed to this repository.
 
-/** All the `problems` from parsing `raw`, asserting every one is an error. */
+/** All the `problems` from parsing `raw`, each one named and blocking. */
 function problemsFor(raw) {
   const { problems } = parseManifest(raw)
-  assert.ok(problems.every((p) => p.level === 'error'), 'every problem this module raises today must be level "error"')
+  assert.ok(
+    problems.every((p) => typeof p.message === 'string' && p.message.length > 0),
+    'a problem with no message tells an agent nothing about what to change',
+  )
   return problems
 }
 

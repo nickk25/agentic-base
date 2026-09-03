@@ -79,9 +79,10 @@ export function diff(before, after) {
     }
   }
 
-  // ---- tests ----------------------------------------------------------------
+  // ---- tests ------------------------------------------------------------
   const bTests = before?.probes?.tests?.byName ?? {}
   const aTests = after.probes?.tests?.byName ?? {}
+
   for (const name of keys(aTests)) {
     const was = bTests[name]
     const is = aTests[name]
@@ -92,8 +93,33 @@ export function diff(before, after) {
       push('test.flip', name, 'down', { from: 'absent', to: 'fail' })
     }
   }
-  for (const name of keys(bTests)) {
-    if (!(name in aTests)) push('test.removed', name, 'down', { from: bTests[name], to: 'absent' })
+
+  // A vanished name and a fresh name carry no shared identity across two
+  // snapshots — no path, no hash of the test body, nothing but the name
+  // itself, and the name is exactly what changed. So "the same test under a
+  // new name" can only ever be a guess, and the guess made here is: when a
+  // passing name disappears and a passing name appears in the same diff, and
+  // the counts match, treat that many disappearances as renames rather than
+  // as removals. Pairing is arbitrary (there is no signal to pair on), only
+  // the count is used. This is wrong exactly when an unrelated deletion and
+  // an unrelated addition land in the same diff with the same count — rare,
+  // and no worse than today: a newly-added passing test already produces no
+  // entry at all (the "already working is neutral" rule above), so the
+  // addition side of that coincidence was always invisible on its own. The
+  // alternative — reporting every disappearance as `down` — is wrong on
+  // every routine rename, which is not rare, so this trades an unlikely
+  // false neutral for a guaranteed false alarm. A test that was failing when
+  // it disappeared is never matched into a rename: only a passing subject
+  // can be presumed carried over, so a failing test's disappearance still
+  // reports as a plain removal below.
+  const removedNames = keys(bTests).filter((name) => !(name in aTests))
+  const removedPassing = removedNames.filter((name) => bTests[name] === 'pass')
+  const addedPassing = keys(aTests).filter((name) => !(name in bTests) && aTests[name] === 'pass')
+  const renamed = new Set(removedPassing.slice(0, Math.min(removedPassing.length, addedPassing.length)))
+
+  for (const name of removedNames) {
+    if (renamed.has(name)) push('test.renamed', name, 'neutral', { from: 'pass', to: 'presumed renamed' })
+    else push('test.removed', name, 'down', { from: bTests[name], to: 'absent' })
   }
 
   // ---- coupling -------------------------------------------------------------
@@ -123,40 +149,34 @@ export function diff(before, after) {
 }
 
 /**
- * Which regression family a kind belongs to: the thing two kinds must share to
- * be allowed to cancel each other in `openRegressions`. Most kinds are their
- * own family — a `test.flip` down clears only a later `test.flip` up on the
- * same subject — but a couple of pairs record one regression under a different
- * verb per direction, and those must still be recognised as the same thing.
+ * What regression a transition kind belongs to, and whether the kind means
+ * the subject itself is gone rather than merely re-measured.
  *
- * Keying by `kind.split('.')[0]` used to stand in for this and lumped in far
- * more than intended: `test.flip` and `test.removed` share a namespace but are
- * not the same regression, and `module.added` could clear a `module.budget`
- * regression on the same module purely because both start with `module.`.
+ * A `family` groups kinds that record one regression under a different verb
+ * per direction — `invariant.uncovered`/`covered`, `coupling.opened`/`closed`
+ * — so the `up` variant can close the `down` variant's regression; a kind
+ * missing from this table is its own family (its own kind name). `gone: true`
+ * marks a kind whose subject can never be re-measured: such a subject retires
+ * whatever regression is open against it instead of waiting for an `up` that
+ * can never arrive, and is not itself recorded as a new regression — a
+ * subject that disappeared was never observed to improve, and inventing an
+ * `up` for it would be exactly the kind of narrated, unmeasured claim this
+ * file exists to refuse. `openRegressions` below carries the one exception:
+ * a subject that was failing when it vanished still keeps its regression
+ * open, because deletion is not a repair.
  */
-const FAMILY = {
-  'invariant.uncovered': 'invariant.coverage',
-  'invariant.covered': 'invariant.coverage',
-  'coupling.opened': 'coupling.violation',
-  'coupling.closed': 'coupling.violation',
+const REGRESSION = {
+  'invariant.uncovered': { family: 'invariant.coverage' },
+  'invariant.covered': { family: 'invariant.coverage' },
+  'coupling.opened': { family: 'coupling.violation' },
+  'coupling.closed': { family: 'coupling.violation' },
+  'test.removed': { gone: true },
+  'module.removed': { gone: true },
 }
-const family = (kind) => FAMILY[kind] ?? kind
-
-/**
- * Kinds that mean the subject itself is gone, not merely changed.
- *
- * A vanished subject can never be re-measured, so it can never again produce
- * the `up` that would close a regression — the "renamed test" and "deleted
- * module" defects were both this: a `down` left in the map with no way out.
- * The fix is decided here rather than by having `diff` invent a synthetic `up`
- * for the vanished subject, because `diff` only ever reports what one pair of
- * snapshots actually measured; a subject that disappeared was never observed
- * to improve, and fabricating an improvement for it would be exactly the kind
- * of narrated, unmeasured claim this file exists to refuse. So instead: a
- * disappearance retires every open regression on that subject, of any kind,
- * and is not itself added as a new one — there is nothing left to check.
- */
-const RETIRES_SUBJECT = new Set(['test.removed', 'module.removed'])
+const regressionOf = (kind) => {
+  const r = REGRESSION[kind]
+  return { family: r?.family ?? kind, gone: r?.gone === true }
+}
 
 /**
  * Regressions still open: a `down` with no later `up` on the same subject.
@@ -171,7 +191,8 @@ export function openRegressions(entries) {
   /** @type {Map<string, Entry>} */
   const open = new Map()
   for (const e of entries) {
-    if (RETIRES_SUBJECT.has(e.kind)) {
+    const { family, gone } = regressionOf(e.kind)
+    if (gone) {
       // '\0' can't appear in a kind or subject string, so it is a safe
       // separator: the same convention this file's own id() already uses.
       for (const [k, open_] of open) {
@@ -185,7 +206,7 @@ export function openRegressions(entries) {
       }
       continue
     }
-    const k = `${family(e.kind)}\0${e.subject}`
+    const k = `${family}\0${e.subject}`
     if (e.severity === 'down') open.set(k, e)
     else if (e.severity === 'up') open.delete(k)
   }
@@ -196,11 +217,9 @@ export function openRegressions(entries) {
  * Whether a snapshot may be taken as measured, given whether the working tree
  * has uncommitted changes and whether the caller opted in anyway.
  *
- * Pulled out as a pure function so the refusal rule (Bug 1: a snapshot stamped
- * with `git rev-parse HEAD` while it measures whatever is actually on disk,
- * dirty or not) has a test that needs no real git repository — state.mjs owns
- * running `git status --porcelain`; this just decides what to do with the
- * answer.
+ * Pulled out as a pure function so the refusal rule has a test that needs no
+ * real git repository — state.mjs owns running `git status --porcelain`; this
+ * just decides what to do with the answer.
  *
  * @param {boolean} dirty       true when the working tree has uncommitted changes
  * @param {boolean} allowDirty  explicit opt-in from the caller
@@ -216,22 +235,20 @@ export function refuseDirty(dirty, allowDirty) {
 }
 
 /**
- * How much of the movement is going anywhere.
- * Useful ratios and useless ones differ by the denominator: this one is
- * snapshots, so a burst of merges that changed nothing measurable drags it down,
- * which is exactly what it is for.
+ * The only two numbers about the whole timeline worth reporting at a glance.
+ *
+ * `snapshots` is the sample size the rest of the state page's numbers should
+ * be read against. `openRegressions` is deliberately the only health number
+ * kept here: a cumulative count of every `down`/`up` ever seen only grows
+ * and never falls, so a single mass rename or a long healthy history both
+ * inflate it the same way a real defect would, and a reader cannot tell
+ * "a lot happened" from "a lot broke" without re-deriving `openRegressions`
+ * anyway. `openRegressions` already answers the one question that matters —
+ * is anything broken right now — so it is kept and nothing else is.
  *
  * @param {Entry[]} entries
  * @param {number} snapshots
  */
 export function health(entries, snapshots) {
-  const ups = entries.filter((e) => e.severity === 'up').length
-  const downs = entries.filter((e) => e.severity === 'down').length
-  return {
-    snapshots,
-    improvements: ups,
-    regressions: downs,
-    openRegressions: openRegressions(entries).length,
-    usefulTransitionRate: snapshots ? +(ups / snapshots).toFixed(2) : 0,
-  }
+  return { snapshots, openRegressions: openRegressions(entries).length }
 }

@@ -33,7 +33,9 @@ const c = process.stdout.isTTY
  */
 function loadRules() {
   const { rules, problems } = loadManifest(MANIFEST)
-  const errors = problems.filter((p) => p.level === 'error')
+  // Every problem a manifest can have is blocking; there is no advisory tier,
+  // because a warning that never blocks is the theatre this repository refuses.
+  const errors = problems
   if (errors.length) {
     console.error(`${c.red}${c.bold}${MANIFEST} problem${errors.length > 1 ? 's' : ''}${c.off}\n`)
     for (const p of errors) console.error(`  ${c.red}✗${c.off} ${p.ruleId ? p.message : `${MANIFEST} ${p.message}`}`)

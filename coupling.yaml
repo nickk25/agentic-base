@@ -26,8 +26,6 @@
 # `{name}` (one captured segment) and a leading `!` to subtract. A capture makes
 # one rule cover every module without anybody listing them.
 
-version: 1
-
 rules:
   # Every pull request that changes engine behaviour has to say so in the docs.
   # `changed` is only a reminder here; the check that cannot be fooled is the

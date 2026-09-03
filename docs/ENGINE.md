@@ -183,6 +183,38 @@ is not the same as anything inside it moving. Blank lines, spaces, tabs and file
 modes all fail to satisfy it; a binary file is taken at its word, since we cannot
 see inside it to argue otherwise.
 
+## A rename is not damage
+
+Renaming every test in this repository once produced 59 regressions on a page
+whose whole purpose is to say whether anything broke. Nothing had.
+
+Two bare snapshots carry no stable identity for a subject — no path, no hash,
+only the name, which is exactly what a rename changes. So the rule is count-only:
+when N passing subjects vanish and N passing subjects appear in the same diff,
+the vanished ones are recorded as renamed and neutral. The pairing is arbitrary;
+only the count is trusted. A failing subject is never matched into a rename,
+because only "was passing" supports the presumption that it carried over — so
+deleting a broken test, or landing a new failure, still reports as a regression.
+
+It is wrong when an unrelated deletion and an unrelated addition happen to match
+in count within one diff. That trade is deliberate: the metric used to scream on
+every rename, and a number that screams routinely stops being read.
+
+`health` reports only what is open. The cumulative counters only ever grew, and a
+rate of improvements per snapshot reads as zero in a healthy repository — the
+same value it reads when nothing is being fixed at all.
+
+## One run, one mode
+
+The suite is executed once and its results feed every consumer that needs them;
+`state` used to run it seven times. The `--offline` invariant check is gone: a
+deliberately weaker version of the same check obliged every reader to ask which
+mode had run and every future change to be made twice.
+
+Manifest problems have no severity tier either. There was one level, and every
+consumer filtered for it — a warning that never blocks is the same theatre as a
+`changed` requirement presented as a gate.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -202,3 +234,4 @@ see inside it to argue otherwise.
 - Ids in test titles, shared manifest validation, blank lines no longer count as a change.
 - it() recognised, inert tests rejected, TAP views reconciled, failing claims no longer counted as covered.
 - INV- prefix required, one suite definition, mode-only changes rejected, YAML errors named, state job serialised.
+- Renames recognised, vanity metrics deleted, one test run, one check mode.

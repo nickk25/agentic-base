@@ -14,11 +14,10 @@ import { parseTap, tests as testsProbe } from '../probes/index.mjs'
 // tree that actually gets tested, sitting in a test that fails, or sitting in
 // a test that's skipped.
 //
-// There is no fixture here for the old "orphan tag" case (an id belonging to
-// no test at all). An id now lives inside a test's own title string, and a
-// title string has no position to occupy except inside a real `test(...)`
-// call — the failure mode that case guarded against cannot happen any more,
-// so it has nothing left to reproduce.
+// There is no fixture here for an "orphan id" (one belonging to no test at
+// all): an id lives inside a test's own title string, and a title string has
+// no position to occupy except inside a real `test(...)` call, so that state
+// cannot arise structurally and has nothing to reproduce.
 
 const INVARIANTS = fileURLToPath(new URL('../invariants.mjs', import.meta.url))
 // Fixture ids are assembled through this helper rather than written out
@@ -46,9 +45,9 @@ function write(root, relPath, content) {
 }
 
 /** Runs the real invariants.mjs against `root` and returns its parsed --json output. */
-function runInvariants(root, extraArgs = []) {
+function runInvariants(root) {
   try {
-    const out = execFileSync('node', [INVARIANTS, '--json', ...extraArgs], { cwd: root, encoding: 'utf8' })
+    const out = execFileSync('node', [INVARIANTS, '--json'], { cwd: root, encoding: 'utf8' })
     return JSON.parse(out)
   } catch (err) {
     // invariants.mjs exits 1 whenever it finds a problem; the JSON is still on stdout.
@@ -164,22 +163,6 @@ test('INV-invariants-07 parseTap does not count a describe() suite’s own summa
   assert.equal(leaves[0].state, 'pass')
 })
 
-test('INV-invariants-08 --offline mode is announced and does not require execution to satisfy a claim', () => {
-  const root = makeFixtureRoot()
-  try {
-    write(root, 'CLAUDE.md', CLAIM(fid('08')))
-    // Would fail if it were ever executed — offline mode must never run it.
-    write(root, 'tools/agentic/lib/wouldfail.test.mjs', `${HEADER}test('${fid('08')} would fail', () => {\n  assert.ok(false)\n})\n`)
-
-    const result = runInvariants(root, ['--offline'])
-    assert.equal(result.mode, 'offline', 'the mode actually used must be visible in the output')
-    assert.equal(result.missingTest.includes(fid('08')), false)
-    assert.equal(result.unverified.length, 0, 'offline mode does not check execution at all')
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
 test('INV-invariants-09 a declared id whose test actually ran and passed satisfies the claim', () => {
   const root = makeFixtureRoot()
   try {
@@ -229,30 +212,6 @@ test('INV-invariants-10 an id carried by an it() test is recognised in both dire
     const result = runInvariants(root)
     assert.equal(result.missingTest.includes(fid('10')), false, 'an it() title backs a claim like a test() title does')
     assert.deepEqual(result.unverified, [])
-  } finally {
-    rmSync(root, { recursive: true, force: true })
-  }
-})
-
-test('INV-invariants-11 a skipped test does not back a claim even offline', () => {
-  // Offline mode never runs anything, but `.skip` is legible straight off the
-  // call — leaving that catch on the table would make the weaker mode weaker
-  // than it has to be.
-  const root = makeFixtureRoot()
-  try {
-    write(root, 'package.json', '{"name":"f","type":"module"}')
-    write(root, 'CLAUDE.md', CLAIM(fid('11')))
-    write(
-      root,
-      'tools/agentic/lib/skipped.test.mjs',
-      `${HEADER}test.skip('${fid('11')} never asserts anything', () => {\n  assert.ok(true)\n})\n`,
-    )
-    const result = runInvariants(root, ['--offline'])
-    assert.equal(result.mode, 'offline')
-    assert.ok(
-      result.unverified.some((u) => u.id === fid('11')),
-      'a test declared with .skip proves nothing, and that is readable without running it',
-    )
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

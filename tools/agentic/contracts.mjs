@@ -78,7 +78,9 @@ async function main() {
   // would crash a generator (see the module comment in lib/manifest.mjs) is
   // reported by name here instead of surfacing as an unhandled TypeError.
   const { rules, problems } = loadManifest((isAbsolute(MANIFEST) ? MANIFEST : join(ROOT, MANIFEST)))
-  const manifestErrors = problems.filter((p) => p.level === 'error')
+  // Every problem a manifest can have is blocking; there is no advisory tier,
+  // because a warning that never blocks is the theatre this repository refuses.
+  const manifestErrors = problems
   if (manifestErrors.length) {
     if (json) {
       console.log(JSON.stringify({ manifestProblems: manifestErrors }, null, 2))
