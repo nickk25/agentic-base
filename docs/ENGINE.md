@@ -259,6 +259,28 @@ not yet meet the floor so a regression is still caught while the gap stays
 visible; leaving one in place after the file improves does the opposite, holding
 it to a bar *below* what everyone else clears.
 
+## The suite is declared, not assumed
+
+The engine used to hard-code where tests live and what they are called —
+`tools/agentic/**/*.test.mjs` — directly under a comment claiming it never learns
+what language it governs. A project adopting it whose tests live in `src/` and end
+in `.ts` had every one of its invariants reported as untested on its first run.
+
+A project declares its own in `package.json`:
+
+    "agentic": { "tests": {
+      "files": ["tools/agentic/**/*.test.mjs", "src/**/*.test.ts"],
+      "nodeArgs": ["--experimental-strip-types"]
+    } }
+
+`nodeArgs` exists because a suite that is not plain JavaScript needs a flag to
+run at all, and a suite that is discovered but cannot execute reads as every test
+having failed.
+
+A malformed declaration falls back to the defaults rather than matching nothing.
+Matching nothing looks exactly like a project with no tests, and would silently
+pass every invariant it could not check.
+
 ## Unreleased
 
 - Empty-result refusals, capture escaping and shell allowlisting, executed-test
@@ -282,3 +304,4 @@ it to a bar *below* what everyone else clears.
 - main protected with no bypass; measurements moved to the state branch.
 - Per-file mutation floor with a ratchet, and tests for the floor itself.
 - Floor script importable without side effects; ratchet emptied.
+- Test discovery declared per project rather than hard-coded.
