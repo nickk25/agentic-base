@@ -8,35 +8,26 @@ This file exists to route you to the right file in as few reads as possible.
 It is capped at 360 lines and the cap is enforced. If something here does not
 help you route, it belongs in a module contract instead.
 
-## 0. The gates are advisory. Treat them as binding.
+## 0. The gates are enforced. You cannot merge past them.
 
-This repository is private on a plan where branch protection does not exist, so
-CI reports a failure and nothing stops the merge. **The gate cannot enforce
-itself. You are the enforcement.**
+`main` is protected with an empty bypass list. Nobody writes to it outside a pull
+request whose checks passed — not you, not the repository owner, not CI. A push
+straight to `main` is refused by the server.
 
-That is not permission to move faster. It is the opposite: every rule here is
-one you could step over without anyone noticing, which is exactly why stepping
-over one is the most damaging thing you can do in this repository.
+This section used to be an appeal to your discipline, because the gates were
+advisory and a red check stopped nothing. It is now a description of what the
+machine does. Two habits from that period are worth keeping anyway:
 
-So, without exception:
+- **Report what the checks said**, verbatim, at the end of any session that
+  touched code — including failures you did not fix, and why. The machine now
+  blocks the merge, but it cannot make your summary honest.
+- **Never route around a rule.** Renaming a file out of a pattern, or splitting a
+  change so neither half fires the rule, still works and is still worse than the
+  bug the rule existed to catch. If a rule is wrong, change the rule in its own
+  pull request and say why.
 
-- **A red gate means do not merge.** Not "merge and open a follow-up". Not
-  "merge, it is only advisory". Fix it, or leave the pull request open.
-- **Never route around a rule.** Do not rename a file, move code to a path the
-  pattern misses, or split a change across pull requests so that neither one
-  fires the rule. If a rule is wrong, change the rule in its own pull request
-  and say why. Working around a rule silently is worse than the bug the rule
-  was there to catch.
-- **State the result, every time.** Finish any session that touched code by
-  reporting the outcome of `npm run gate` and `npm test` verbatim — including
-  the failures you did not fix and why. This is the point of the rule: it makes
-  ignoring a gate require an explicit false statement rather than a convenient
-  silence.
-- **Never claim a gate passed without running it.** If you could not run it, say
-  that instead.
-
-When branch protection is switched on, this section becomes redundant and the
-machine takes over. Until then it is the only thing standing in for it.
+Measurements are published to the `state` branch, never to `main`. The protection
+did not bend to let CI write; the measurement moved.
 
 ## 1. Session protocol
 
@@ -97,7 +88,7 @@ Generated from `coupling.yaml`. Do not edit this section by hand.
 | `contracts-current` | `tools/agentic/**`, `package.json`, `coupling.yaml`, `**/CLAUDE.md` | `npm run contracts:check` to pass |
 | `invariants-anchored` | `tools/agentic/**`, `**/CLAUDE.md` | `npm run invariants` to pass |
 | `protected-controls` | `coupling.yaml`, `.github/workflows/**` | the `human-approved` label |
-| `measured-history` | `.agentic/snapshots/**`, `docs/state.json`, `docs/state.html` | the `human-approved` label |
+| `measured-history` | `.agentic/snapshots/**` | the `human-approved` label |
 <!-- /gen:coupling -->
 
 ## 6. Invariants of the engine
@@ -139,6 +130,11 @@ for, and it is not here yet.
 - Deleting the target does not satisfy a `changed` requirement; otherwise the cheapest way to satisfy "document what you did" is to delete the document. `test: INV-coupling-18`
 - Adding blank lines does not satisfy `rejectWhitespaceOnly`. `test: INV-coupling-19`
 - A mode-only change does not satisfy `rejectWhitespaceOnly`; zero bytes changed is not a change. `test: INV-coupling-20`
+- Explicit `base` and `head` resolve to an event-sourced range, with options winning over the environment. `test: INV-changed-01`
+- `base` and `head` fall back to the environment when options supply neither. `test: INV-changed-02`
+- Only one of `base`/`head` being present does not resolve as an event-sourced range; half a range is not a range. `test: INV-changed-03`
+- A resolvable merge base is reported as such, so a reader can tell where the comparison came from. `test: INV-changed-04`
+- With no default branch to compare against, the range says so rather than inventing one. `test: INV-changed-05`
 - Deleting a failing test does not clear its open regression. `test: INV-timeline-12`
 - A rule with no `id` is rejected by name instead of being silently accepted. `test: INV-manifest-01`
 - A `when` written as a string instead of a list is rejected instead of being iterated character by character. `test: INV-manifest-02`

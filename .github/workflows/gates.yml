@@ -51,11 +51,13 @@ jobs:
         run: npm run gate
 
   state:
-    # Only on main: a snapshot is a measurement of what landed, not of a proposal.
+    # Measurements live on their own branch, never on main.
+    #
+    # main is protected with an empty bypass list — nobody, including the owner
+    # and including CI, writes to it outside a pull request. That is the whole
+    # point, so the measurement had to move rather than the protection bend.
+    # A side benefit: no race with a merge landing while the suite runs.
     if: github.event_name == 'push'
-    # One at a time, and never cancelled: two merges landing close together
-    # would otherwise race, and the loser's push is rejected non-fast-forward
-    # with its measurement lost.
     concurrency:
       group: state
       cancel-in-progress: false
@@ -68,21 +70,24 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npm run state
 
-      # Without this the timeline is a dead feature: each run starts with an
-      # empty snapshot store, diffs nothing against nothing, and reports zero
-      # transitions forever. A push made with GITHUB_TOKEN does not re-trigger
-      # workflows, so committing back here cannot loop.
-      - name: Keep the snapshot
+      - name: Restore the snapshot history
+        run: |
+          git fetch origin state:refs/remotes/origin/state || true
+          git checkout origin/state -- .agentic/snapshots 2>/dev/null || true
+
+      - run: npm run state -- --allow-dirty
+
+      - name: Publish the measurement
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .agentic/snapshots docs/state.json docs/state.html
-          git diff --cached --quiet || git commit -m "state: snapshot ${GITHUB_SHA:0:7} [skip ci]"
-          # main may have moved while the suite ran.
-          git pull --rebase origin main
-          git push
+          git checkout -B state
+          git add -f .agentic/snapshots docs/state.json docs/state.html
+          git commit -m "state: snapshot ${GITHUB_SHA:0:7}"
+          # A derived branch: its history is the measurements, rebuilt each time
+          # from the previous ones, so replacing it wholesale is correct.
+          git push -f origin state
 
       - uses: actions/upload-artifact@v4
         with:

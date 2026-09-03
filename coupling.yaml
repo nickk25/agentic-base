@@ -100,11 +100,9 @@ rules:
   # history — the one thing the state page exists to prevent — so touching it
   # outside CI needs a person to say so out loud.
   - id: measured-history
-    why: A timeline an agent can edit is a story, not a measurement.
+    why: A timeline an agent can edit is a story, not a measurement. CI publishes these to the `state` branch; they have no business changing in a pull request.
     when:
       - ".agentic/snapshots/**"
-      - "docs/state.json"
-      - "docs/state.html"
     require:
       - kind: label
         name: human-approved
