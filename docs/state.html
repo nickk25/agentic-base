@@ -1,0 +1,412 @@
+<!doctype html>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>State</title>
+<style>
+:root{--bg:#EFF2F5;--card:#fff;--ink:#12161C;--body:#2C343E;--muted:#6A7683;--line:#DCE2E9;--up:#0F766E;--down:#B4232A}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0C1015;--card:#141A21;--ink:#E9EDF2;--body:#BFC8D2;--muted:#8391A0;--line:#242E38;--up:#3FCFBC;--down:#F2777E}}
+:root[data-theme=dark]{--bg:#0C1015;--card:#141A21;--ink:#E9EDF2;--body:#BFC8D2;--muted:#8391A0;--line:#242E38;--up:#3FCFBC;--down:#F2777E}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--body);font:15px/1.55 ui-sans-serif,system-ui,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:40px 24px 80px;display:flex;flex-direction:column;gap:32px}
+h1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+.hero{display:flex;align-items:center;gap:16px}
+.dot{width:34px;height:34px;border-radius:50%;background:#B4232A;flex:none}
+.hero p{margin:0;font-size:22px;color:var(--ink);font-weight:600;letter-spacing:-.02em}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.num{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:14px 16px}
+.num b{display:block;font-size:26px;color:var(--ink);font-variant-numeric:tabular-nums}
+.num span{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+li{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--down);border-radius:4px;padding:10px 14px;font-size:14px}
+li.ok{border-left-color:var(--up);color:var(--muted)}
+li b{color:var(--ink)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:4px;background:var(--card)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:560px}
+th{text-align:left;padding:9px 14px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--line)}
+td{padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr.up td:first-child{box-shadow:inset 3px 0 var(--up)}
+tr.down td:first-child{box-shadow:inset 3px 0 var(--down)}
+.nw{white-space:nowrap}
+code{font-family:ui-monospace,monospace;font-size:.9em;color:var(--ink)}
+footer{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace}
+</style>
+<div class="wrap">
+  <div class="hero"><div class="dot"></div><p>Something declared is broken.</p></div>
+
+  <div class="nums">
+    <div class="num"><b>153/153</b><span>invariants with a test</span></div>
+    <div class="num"><b>0</b><span>failing tests</span></div>
+    <div class="num"><b>0</b><span>open regressions</span></div>
+  </div>
+
+  <section><h1>Where not to step</h1><ul><li><b>dirty snapshot</b> The latest snapshot measured a working tree with uncommitted changes.</li><li><b>coupling not measured</b> The gate had no change set to evaluate, so this says nothing about whether the rules hold.</li></ul></section>
+
+  <section><h1>What actually changed</h1>
+    <div class="scroll"><table>
+      <thead><tr><th>When</th><th>Kind</th><th>Subject</th><th>Change</th></tr></thead>
+      <tbody><tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">148 → 153</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">146 → 148</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">119 → 146</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">87 → 119</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: INV-timeline-07 a renamed test does not leave a permanent open regression</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: INV-timeline-06 the useful-transition rate is measured per snapshot, not per entry</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: INV-invariants-11 a skipped test does not back a claim even offline</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: INV-invariants-08 --offline mode is announced and does not require execution to satisfy a claim</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-03</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">85 → 87</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">84 → 85</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>invariant.count</code></td>
+      <td>declared</td>
+      <td class="nw">81 → 84</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: removing a healthy subject does retire its record</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: deleting a failing test does not clear its regression</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: a dirty working tree is refused by default, and only proceeds with explicit opt-in</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: an invariant regaining coverage still closes its open regression</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: different transition kinds on the same subject do not clear each other's regressions</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: a removed subject clears any open regression already recorded against it</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: a renamed test does not leave a permanent open regression</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: the useful-transition rate is measured per snapshot, not per entry</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: a regression stays open until the same subject recovers</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: something that appears already working is neutral, never an improvement</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: a test that arrives already failing is a regression, not a neutral addition</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: a test flipping either way is a transition with derived severity</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/timeline.test.mjs :: a snapshot that changed nothing measurable produces no entries</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: a tag inside a test that actually ran and passed satisfies the declared invariant</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: --offline mode is announced and does not require execution to satisfy a claim</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: parseTap does not count a describe() suite’s own summary line as a test</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: parseTap records a SKIP directive as its own state, never as a pass, and strips it from the name</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: duplicate test names across different files do not collide in the tests probe</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: a tag not inside any test() call is reported as an orphan, in both online and offline mode</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: a tag inside a skipped test does not satisfy a declared invariant</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: a tag inside a failing test does not satisfy a declared invariant</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/invariants.test.mjs :: a tag in a file outside the executed test tree does not satisfy a declared invariant</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: escaping leaves the pattern author's own globs alone</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: an escaped metacharacter is a literal, not a wildcard</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: a negation excludes a path for good, even when a later pattern matches it directly</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: substituteStrict fails loudly instead of letting a capture go unbound</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: substituteStrict fills captures the same way substitute does</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: an unbound capture left in a required path would match any value, not the one intended</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: matchList breaks a tie between equally-specific patterns by keeping the first</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: matchList binds the more specific pattern no matter where it sits in the list</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: malformed patterns fail loudly rather than matching nothing</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/glob.test.mjs :: a/**/b also matches a/b</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: deleting the target does not satisfy a `changed` requirement</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: a capture containing glob metacharacters cannot widen the rule it fills</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: gate rejects a malformed manifest before evaluating anything, naming the rule and the problem</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: gate --plan normalises a &quot;./&quot; prefix, a trailing slash, and an absolute path to the same result</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: gate refuses to report success when the change set is empty, and --allow-empty opts back in</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: with no base, every path HEAD introduces counts as new, not the working tree against HEAD</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: an unbound capture in a required path is reported as a rule error, not a crash</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: an edit with real content satisfies `rejectWhitespaceOnly`</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: a whitespace-only edit does not satisfy `rejectWhitespaceOnly`</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: a hostile path cannot execute anything through the whitespace probe</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: a hostile capture cannot execute anything through a command requirement</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: a failing command reports its own output, not just its exit code</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: plan mode never executes a command requirement</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: a label requirement reads the labels on the pull request</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: `added` refuses a modified file where a new one was required</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: the capture is substituted into the requirement, per module</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr>
+<tr class="neutral">
+      <td class="nw">2026-09-02</td>
+      <td class="nw"><code>test.renamed</code></td>
+      <td>tools/agentic/lib/coupling.test.mjs :: a rule stays silent for modules the change set never touches</td>
+      <td class="nw">pass → presumed renamed</td>
+    </tr></tbody>
+    </table></div>
+  </section>
+
+  <footer>c8e6a88 (dirty) · Let a project say where its tests live (#4) · generated 2026-09-03 13:57 UTC<br>
+  A merge that moves nothing measurable produces no entry. This measures effect, not effort.</footer>
+</div>
