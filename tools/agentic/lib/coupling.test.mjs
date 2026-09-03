@@ -34,6 +34,22 @@ function makeRepo() {
 // repo's own history rather than accidentally inheriting the real one.
 const GATE_ENV = { ...process.env, AGENTIC_BASE_SHA: '', AGENTIC_HEAD_SHA: '', AGENTIC_PR_LABELS: '' }
 
+// `resolveRange` consults AGENTIC_BASE_SHA / AGENTIC_HEAD_SHA before it looks at
+// git, so a test about the fallback paths has to run with them unset. CI sets
+// both for the gate step; without this the test exercises the event path there
+// and the fallback path locally.
+function withoutEventEnv(fn) {
+  const saved = { base: process.env.AGENTIC_BASE_SHA, head: process.env.AGENTIC_HEAD_SHA }
+  delete process.env.AGENTIC_BASE_SHA
+  delete process.env.AGENTIC_HEAD_SHA
+  try {
+    return fn()
+  } finally {
+    if (saved.base !== undefined) process.env.AGENTIC_BASE_SHA = saved.base
+    if (saved.head !== undefined) process.env.AGENTIC_HEAD_SHA = saved.head
+  }
+}
+
 const moduleContract = {
   id: 'module-contract',
   when: ['src/{module}/**', '!src/{module}/CLAUDE.md'],
@@ -274,7 +290,7 @@ test('INV-coupling-13 with no base, every path HEAD introduces counts as new, no
 
     // No branch by this name exists, so `git merge-base` fails and resolveRange
     // must fall back to its no-base path -- the one this test exercises.
-    const noBase = resolveRange({ defaultBranch: 'no-such-branch' })
+    const noBase = withoutEventEnv(() => resolveRange({ defaultBranch: 'no-such-branch' }))
     assert.equal(noBase.base, null)
 
     const changes = changedFiles(noBase)

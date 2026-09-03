@@ -226,6 +226,8 @@ Generated from `package.json`. Do not edit by hand.
 | `npm run verify` | `npm run contracts:check && npm run invariants && npm test && npm run gate` |
 | `npm run state` | `node tools/agentic/state.mjs` |
 | `npm run state:snapshot` | `node tools/agentic/state.mjs snapshot` |
+| `npm run mutate` | `stryker run` |
+| `npm run mutate:quick` | `stryker run --mutate tools/agentic/lib/glob.mjs` |
 <!-- /gen:commands -->
 
 ## 8. What a good pull request looks like
